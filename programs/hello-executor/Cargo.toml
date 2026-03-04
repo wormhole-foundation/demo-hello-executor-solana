@@ -1,0 +1,36 @@
+[package]
+name = "hello-executor"
+version = "0.1.0"
+description = "Cross-chain Hello World with Wormhole Executor"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "hello_executor"
+
+[features]
+default = ["solana-devnet"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+idl-build = [
+    "anchor-lang/idl-build",
+    "wormhole-anchor-sdk/idl-build",
+    "wormhole-anchor-sdk/no-custom-discriminator",
+    "wormhole-anchor-sdk/mainnet",
+]
+# Networks
+mainnet = ["wormhole-anchor-sdk/mainnet"]
+solana-devnet = ["wormhole-anchor-sdk/solana-devnet"]
+fogo-testnet = ["wormhole-anchor-sdk/from-env"]
+tilt-devnet = ["wormhole-anchor-sdk/tilt-devnet"]
+
+[dependencies]
+solana-program = { workspace = true }
+anchor-lang = { workspace = true }
+wormhole-anchor-sdk = { workspace = true }
+wormhole-io = { workspace = true }
+wormhole-raw-vaas = { workspace = true }
+executor-account-resolver-svm = { git = "https://github.com/wormholelabs-xyz/executor-account-resolver-svm", branch = "main" }
+hex = "0.4"

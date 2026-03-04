@@ -1,0 +1,17 @@
+.DS_Store
+.env
+.env.*
+
+node_modules/
+
+target/
+.anchor/
+
+e2e/.env
+e2e/.env.*
+!e2e/.env.example
+
+# Generated IDL files (produced by `anchor build`, not hand-edited)
+# The canonical IDL is target/idl/hello_executor.json
+# e2e/abi/hello_executor.json is hand-maintained for TypeScript consumers
+idls/hello_executor.json

@@ -1,0 +1,40 @@
+[features]
+seeds = false
+skip-lint = false
+
+[workspace]
+members = ["programs/hello-executor"]
+
+[programs.localnet]
+hello_executor = "7eiTqf1b1dNwpzn27qEr4eGSWnuon2fJTbnTuWcFifZG"
+
+[programs.devnet]
+hello_executor = "7eiTqf1b1dNwpzn27qEr4eGSWnuon2fJTbnTuWcFifZG"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "npx ts-mocha -p ./tsconfig.json -t 1000000 tests/*.ts"
+
+[test]
+startup_wait = 10000
+
+[test.validator]
+url = "https://api.devnet.solana.com"
+
+### Wormhole Core Bridge Program (Devnet)
+[[test.validator.clone]]
+address = "3u8hJUVTA4jH1wYAyUur7FFZVQ8H635K3tSHHF4ssjQ5"
+
+### Wormhole Bridge Config PDA
+[[test.validator.clone]]
+address = "6bi4JGDoRwUs9TYBuvoA7dUVyikTJDrJsJU1ew6KVLiu"
+
+### Wormhole Fee Collector PDA
+[[test.validator.clone]]
+address = "7s3a1ycs16d6SNDumaRtjcoyMaTDZPavzgsmS3uUZYWX"
