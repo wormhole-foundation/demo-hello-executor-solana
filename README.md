@@ -22,7 +22,7 @@ npx tsx e2e/setupPeers.ts
 npx tsx e2e/sendToSepolia.ts "Hello from Solana!"
 ```
 
-> For Sepolia → Solana, see the [EVM demo repo](https://github.com/evgeniko/demo-hello-executor/tree/feat/cross-vm-solana).
+> For Sepolia → Solana, see the [EVM demo repo](https://github.com/wormhole-foundation/demo-hello-executor).
 
 ## Architecture
 
@@ -166,12 +166,9 @@ Because Solana accounts cannot grow after creation, this cap is set at deploymen
 | **Solana → Solana** | ✅ Rejected at send time — `HelloExecutorMessage::serialize` refuses > 512 bytes before the VAA is posted. |
 | **Solana → EVM** | ✅ EVM receiver has no cap. Solana's 512-byte send limit still applies upstream, so you can never exceed it from the Solana side. |
 
-## Related
+## Resources
 
-- **EVM Contract:** [evgeniko/demo-hello-executor](https://github.com/evgeniko/demo-hello-executor/tree/feat/cross-vm-solana)
-- **Wormhole Docs:** [docs.wormhole.com](https://docs.wormhole.com)
-- **Executor Explorer:** [wormholelabs-xyz.github.io/executor-explorer](https://wormholelabs-xyz.github.io/executor-explorer)
-
-## License
-
-MIT
+- [Wormhole Docs](https://wormhole.com/docs)
+- [Executor Documentation](https://wormhole.com/docs/protocol/infrastructure/relayer/#executor)
+- [EVM Contracts](https://github.com/wormhole-foundation/demo-hello-executor)
+- [Solidity SDK](https://github.com/wormhole-foundation/wormhole-solidity-sdk)
