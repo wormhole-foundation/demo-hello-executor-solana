@@ -91,7 +91,7 @@ pub struct ReceiveGreeting<'info> {
             &posted.sequence().to_le_bytes()[..],
         ],
         bump,
-        space = Received::MAXIMUM_SIZE,
+        space = 8 + Received::INIT_SPACE,
     )]
     /// Received account for replay protection.
     /// Creating this account prevents the same message from being processed twice.
@@ -155,11 +155,11 @@ pub(crate) fn handler(ctx: Context<ReceiveGreeting>, vaa_hash: [u8; 32]) -> Resu
     let greeting = String::from_utf8(message.clone())
         .map_err(|_| HelloExecutorError::InvalidMessage)?;
 
-    // Store in Received account for reference
-    let received = &mut ctx.accounts.received;
-    received.batch_id = posted.batch_id();
-    received.wormhole_message_hash = vaa_hash;
-    received.message = message;
+    ctx.accounts.received.set_inner(Received {
+        batch_id: posted.batch_id(),
+        wormhole_message_hash: vaa_hash,
+        message,
+    });
 
     // Emit event
     emit!(GreetingReceived {

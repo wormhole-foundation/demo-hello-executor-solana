@@ -82,12 +82,16 @@ pub(crate) fn handler(ctx: Context<SendGreeting>, greeting: String) -> Result<()
         HelloExecutorError::MessageTooLarge,
     );
 
-    // Read fee from bridge account
-    // Wormhole BridgeData layout (no Anchor discriminator):
-    // guardian_set_index(u32) + last_lamports(u64) + guardian_set_expiration_time(u32) + fee(u64)
-    // = offset 0 + 4 + 8 + 4 = 16 for fee
+    // Read fee from bridge account (BridgeData layout has no Anchor discriminator)
     let bridge_data = ctx.accounts.wormhole_bridge.try_borrow_data()?;
-    let fee = u64::from_le_bytes(bridge_data[16..24].try_into().unwrap());
+    const BRIDGE_FEE_OFFSET: usize = 4 + 8 + 4; // guardian_set_index + last_lamports + expiration_time
+    let fee = u64::from_le_bytes(
+        bridge_data
+            .get(BRIDGE_FEE_OFFSET..BRIDGE_FEE_OFFSET + 8)
+            .ok_or(HelloExecutorError::InvalidWormholeConfig)?
+            .try_into()
+            .unwrap(),
+    );
     drop(bridge_data);
 
     // Pay Wormhole fee if required

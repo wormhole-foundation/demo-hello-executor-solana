@@ -31,7 +31,8 @@ pub use executor_account_resolver_svm::{InstructionGroups as ResolverInstruction
 fn parse_vaa_body(vaa_body: &[u8]) -> Result<(u16, [u8; 32], u64)> {
     // VAA body layout:
     // timestamp(4) | nonce(4) | emitter_chain(2) | emitter_address(32) | sequence(8) | consistency(1) | payload(...)
-    if vaa_body.len() < 51 {
+    const VAA_BODY_MIN_LEN: usize = 4 + 4 + 2 + 32 + 8 + 1;
+    if vaa_body.len() < VAA_BODY_MIN_LEN {
         return Err(ProgramError::InvalidInstructionData.into());
     }
 
@@ -88,7 +89,11 @@ pub(crate) fn handle_resolve_raw<'info>(
         msg!("Data too short");
         return Err(ProgramError::InvalidInstructionData.into());
     }
-    let vaa_len = u32::from_le_bytes(data[0..4].try_into().unwrap()) as usize;
+    let vaa_len = u32::from_le_bytes(
+        data[0..4]
+            .try_into()
+            .map_err(|_| ProgramError::InvalidInstructionData)?,
+    ) as usize;
     if data.len() < 4 + vaa_len {
         msg!("VAA data truncated");
         return Err(ProgramError::InvalidInstructionData.into());
