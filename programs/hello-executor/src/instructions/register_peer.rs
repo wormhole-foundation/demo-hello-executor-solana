@@ -50,10 +50,7 @@ pub(crate) fn handler(ctx: Context<RegisterPeer>, chain: u16, address: [u8; 32])
         HelloExecutorError::InvalidPeer,
     );
 
-    // Save peer info
-    let peer = &mut ctx.accounts.peer;
-    peer.chain = chain;
-    peer.address = address;
+    ctx.accounts.peer.set_inner(Peer { chain, address });
 
     msg!(
         "Registered peer on chain {}: {}",

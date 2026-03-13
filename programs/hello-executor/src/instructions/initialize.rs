@@ -4,7 +4,7 @@ use wormhole_anchor_sdk::wormhole::{self, program::Wormhole};
 
 use crate::{
     message::HelloExecutorMessage,
-    state::{Config, WormholeEmitter},
+    state::{Config, WormholeAddresses, WormholeEmitter},
 };
 
 use super::SEED_PREFIX_SENT;
@@ -90,26 +90,21 @@ pub struct Initialize<'info> {
 }
 
 pub(crate) fn handler(ctx: Context<Initialize>, chain_id: u16) -> Result<()> {
-    let config = &mut ctx.accounts.config;
+    ctx.accounts.config.set_inner(Config {
+        owner: ctx.accounts.owner.key(),
+        chain_id,
+        wormhole: WormholeAddresses {
+            bridge: ctx.accounts.wormhole_bridge.key(),
+            fee_collector: ctx.accounts.wormhole_fee_collector.key(),
+            sequence: ctx.accounts.wormhole_sequence.key(),
+        },
+        batch_id: 0,
+        finality: wormhole::Finality::Finalized as u8,
+    });
 
-    // Set the owner
-    config.owner = ctx.accounts.owner.key();
-    config.chain_id = chain_id;
-
-    // Set Wormhole addresses
-    {
-        let wormhole = &mut config.wormhole;
-        wormhole.bridge = ctx.accounts.wormhole_bridge.key();
-        wormhole.fee_collector = ctx.accounts.wormhole_fee_collector.key();
-        wormhole.sequence = ctx.accounts.wormhole_sequence.key();
-    }
-
-    // Set default values
-    config.batch_id = 0;
-    config.finality = wormhole::Finality::Finalized as u8;
-
-    // Initialize emitter account
-    ctx.accounts.wormhole_emitter.bump = ctx.bumps.wormhole_emitter;
+    ctx.accounts.wormhole_emitter.set_inner(WormholeEmitter {
+        bump: ctx.bumps.wormhole_emitter,
+    });
 
     // Pay Wormhole fee if required
     let fee = ctx.accounts.wormhole_bridge.fee();
