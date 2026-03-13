@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 /// Wormhole program related addresses stored in config.
-#[derive(Default, AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
+#[derive(Default, AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, InitSpace)]
 pub struct WormholeAddresses {
     /// [BridgeData](wormhole_anchor_sdk::wormhole::BridgeData) address.
     pub bridge: Pubkey,
@@ -11,13 +11,9 @@ pub struct WormholeAddresses {
     pub sequence: Pubkey,
 }
 
-impl WormholeAddresses {
-    pub const LEN: usize = 32 + 32 + 32; // bridge + fee_collector + sequence
-}
-
 /// Program configuration account.
 #[account]
-#[derive(Default)]
+#[derive(Default, InitSpace)]
 pub struct Config {
     /// Program's owner (can register peers).
     pub owner: Pubkey,
@@ -33,14 +29,6 @@ pub struct Config {
 }
 
 impl Config {
-    pub const MAXIMUM_SIZE: usize = 8 // discriminator
-        + 32 // owner
-        + 2 // chain_id
-        + WormholeAddresses::LEN // wormhole addresses
-        + 4 // batch_id
-        + 1 // finality
-    ;
-
     /// Seed prefix for deriving the Config PDA.
     pub const SEED_PREFIX: &'static [u8; 6] = b"config";
 }

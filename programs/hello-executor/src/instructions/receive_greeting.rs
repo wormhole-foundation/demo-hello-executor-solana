@@ -91,7 +91,7 @@ pub struct ReceiveGreeting<'info> {
             &posted.sequence().to_le_bytes()[..],
         ],
         bump,
-        space = Received::MAXIMUM_SIZE,
+        space = 8 + Received::INIT_SPACE,
     )]
     /// Received account for replay protection.
     /// Creating this account prevents the same message from being processed twice.

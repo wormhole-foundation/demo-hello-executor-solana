@@ -32,5 +32,5 @@ anchor-lang = { workspace = true }
 wormhole-anchor-sdk = { workspace = true }
 wormhole-io = { workspace = true }
 wormhole-raw-vaas = { workspace = true }
-executor-account-resolver-svm = { git = "https://github.com/wormholelabs-xyz/executor-account-resolver-svm", branch = "main" }
+executor-account-resolver-svm = { git = "https://github.com/wormholelabs-xyz/executor-account-resolver-svm", rev = "c180f40" }
 hex = "0.4"

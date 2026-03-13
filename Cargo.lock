@@ -944,7 +944,7 @@ checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 [[package]]
 name = "executor-account-resolver-svm"
 version = "0.0.1"
-source = "git+https://github.com/wormholelabs-xyz/executor-account-resolver-svm?branch=main#c180f40149bbb48e019e95d5a5daa1512fe063ac"
+source = "git+https://github.com/wormholelabs-xyz/executor-account-resolver-svm?rev=c180f40#c180f40149bbb48e019e95d5a5daa1512fe063ac"
 dependencies = [
  "anchor-lang",
 ]

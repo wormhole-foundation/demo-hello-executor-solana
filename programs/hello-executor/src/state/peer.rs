@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 /// Registered peer contract on another chain.
 #[account]
-#[derive(Default)]
+#[derive(Default, InitSpace)]
 pub struct Peer {
     /// Wormhole chain ID of the peer.
     pub chain: u16,
@@ -11,11 +11,6 @@ pub struct Peer {
 }
 
 impl Peer {
-    pub const MAXIMUM_SIZE: usize = 8 // discriminator
-        + 2 // chain
-        + 32 // address
-    ;
-
     /// Seed prefix for deriving Peer PDAs.
     pub const SEED_PREFIX: &'static [u8; 4] = b"peer";
 

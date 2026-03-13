@@ -112,9 +112,12 @@ const SOLANA_MSG_VALUE_LAMPORTS = 15_000_000n; // ~0.015 SOL
 programs/hello-executor/src/
 ├── lib.rs                    # Entry point & instructions
 ├── instructions/
+│   ├── initialize.rs         # Initialize program config & Wormhole emitter
+│   ├── register_peer.rs      # Register peer contract on another chain
 │   ├── send_greeting.rs      # Send cross-chain message
 │   ├── request_relay.rs      # Request Executor relay
-│   └── receive_greeting.rs   # Receive cross-chain message
+│   ├── receive_greeting.rs   # Receive cross-chain message
+│   └── update_config.rs      # Update Wormhole configuration (owner only)
 ├── state/                    # Account structures
 └── resolver.rs               # Executor resolver
 
@@ -140,11 +143,18 @@ PRIVATE_KEY_SOLANA=[1,2,3,...]
 PRIVATE_KEY_SEPOLIA=0x...
 ```
 
+## Version Notes
+
+The Rust program uses `anchor-lang = 0.29.0` (pinned for `wormhole-anchor-sdk` compatibility),
+while the JS/TS side uses `@coral-xyz/anchor ^0.31.0`. This is intentional - the e2e scripts
+use the 0.30+ `Program` constructor (`new Program(idl, provider)` with `address` in the IDL)
+which is not available in 0.29. The JS SDK is backwards-compatible with 0.29-generated IDLs.
+
 ## Important Limits
 
 ### 512-byte message cap on the Solana receiver
 
-The `Received` account — created on-chain when a message arrives on Solana — is allocated a fixed size at init time:
+The `Received` account - created on-chain when a message arrives on Solana - is allocated a fixed size at init time:
 
 ```
  8 bytes  discriminator
@@ -163,7 +173,7 @@ Because Solana accounts cannot grow after creation, this cap is set at deploymen
 | Sender → Receiver | Effect |
 |---|---|
 | **EVM → Solana** | ⚠️ EVM enforces no limit at send time. If the payload exceeds 512 bytes, `receive_greeting` returns `InvalidMessage` and the relay transaction fails. |
-| **Solana → Solana** | ✅ Rejected at send time — `HelloExecutorMessage::serialize` refuses > 512 bytes before the VAA is posted. |
+| **Solana → Solana** | ✅ Rejected at send time - `HelloExecutorMessage::serialize` refuses > 512 bytes before the VAA is posted. |
 | **Solana → EVM** | ✅ EVM receiver has no cap. Solana's 512-byte send limit still applies upstream, so you can never exceed it from the Solana side. |
 
 ## Resources

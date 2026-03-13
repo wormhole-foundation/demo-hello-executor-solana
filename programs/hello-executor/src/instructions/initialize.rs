@@ -20,7 +20,7 @@ pub struct Initialize<'info> {
         payer = owner,
         seeds = [Config::SEED_PREFIX],
         bump,
-        space = Config::MAXIMUM_SIZE,
+        space = 8 + Config::INIT_SPACE,
     )]
     /// Config account that stores program configuration.
     pub config: Account<'info, Config>,
@@ -51,7 +51,7 @@ pub struct Initialize<'info> {
         payer = owner,
         seeds = [WormholeEmitter::SEED_PREFIX],
         bump,
-        space = WormholeEmitter::MAXIMUM_SIZE,
+        space = 8 + WormholeEmitter::INIT_SPACE,
     )]
     /// Program's Wormhole emitter account.
     pub wormhole_emitter: Account<'info, WormholeEmitter>,

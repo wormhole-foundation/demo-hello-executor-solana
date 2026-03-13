@@ -29,7 +29,7 @@ pub struct RegisterPeer<'info> {
         payer = owner,
         seeds = [Peer::SEED_PREFIX, &chain.to_le_bytes()[..]],
         bump,
-        space = Peer::MAXIMUM_SIZE,
+        space = 8 + Peer::INIT_SPACE,
     )]
     /// Peer account for the specified chain.
     pub peer: Account<'info, Peer>,
