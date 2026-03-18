@@ -40,6 +40,12 @@ This demo supports two approaches for requesting Executor relay:
 
 The on-chain quote approach is simpler (no external API dependency) and mirrors the EVM integration pattern in `HelloWormholeOnChainQuote.sol`.
 
+> **Note:** The on-chain quote e2e script still requires a hardcoded `EXECUTOR_PAYEE_DEVNET`
+> address (the relay operator's fee wallet). This address was extracted from the Executor
+> REST API's signed quote and is **not derivable from any on-chain account**. If the relay
+> operator rotates this wallet, the constant in `config.ts` must be updated manually.
+> Override via the `EXECUTOR_PAYEE` environment variable.
+
 #### On-chain quote CPI chain
 
 ```

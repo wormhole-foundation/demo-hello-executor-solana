@@ -170,9 +170,13 @@ async function getCurrentSequence(
 /**
  * Get the payee (fee recipient) for the executor relay.
  *
- * The payee is the relay operator's wallet — part of Wormhole's deployed
- * infrastructure, same as the executor program address or quoter router.
- * Override via EXECUTOR_PAYEE env var for custom deployments.
+ * WARNING: EXECUTOR_PAYEE_DEVNET is a hardcoded wallet address extracted from the
+ * Executor REST API's signed quote. It is NOT derivable from on-chain state — none
+ * of the quoter/router PDAs expose it. If the relay operator rotates this wallet,
+ * the hardcoded value will break and must be updated manually (or overridden via
+ * the EXECUTOR_PAYEE env var).
+ *
+ * See config.ts for details on how this address was obtained.
  */
 function getPayee(): PublicKey {
     if (process.env.EXECUTOR_PAYEE) {

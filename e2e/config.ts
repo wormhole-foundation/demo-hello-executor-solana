@@ -43,8 +43,12 @@ export const EXECUTOR_PROGRAM_SOLANA = 'execXUrAsMnqMmTHj5m7N1YQgsDz3cwGLYCYyuDR
 export const EXECUTOR_QUOTER_ROUTER_PROGRAM = new PublicKey('qtrrrV7W3E1jnX1145wXR6ZpthG19ur5xHC1n6PPhDV');
 export const EXECUTOR_QUOTER_PROGRAM = new PublicKey('qtrxiqVAfVS61utwZLUi7UKugjCgFaNxBGyskmGingz');
 export const QUOTER_EVM_ADDRESS = '5241C9276698439fEf2780DbaB76fEc90B633Fbd';
-// Executor relay fee recipient (devnet). This is the relay operator's wallet,
-// analogous to the executor program address — part of Wormhole's deployed infrastructure.
+// FRAGILE: Executor relay fee recipient (devnet).
+// This address was extracted from a signed quote returned by the Executor REST API
+// (bytes 24-56 of the EQ01 quote format). It is NOT derivable from any on-chain
+// account — none of the quoter PDAs (registration, chain_info, quote_body, config)
+// store it. If the relay operator rotates this wallet, this constant must be updated
+// manually. Ideally the quoter/router programs would expose it in a readable PDA.
 // Override via EXECUTOR_PAYEE env var for custom deployments.
 export const EXECUTOR_PAYEE_DEVNET = new PublicKey('B4TMRgRPcyjiH5fBfNXssBrkorT6X3ystPNuJSoqrnFA');
 
