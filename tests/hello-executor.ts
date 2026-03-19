@@ -83,6 +83,7 @@ describe('hello-executor', () => {
 
     it('Can derive received PDA for message tracking', () => {
         const emitterChain = 2;
+        const emitterAddress = Buffer.alloc(32); // example emitter (zeros)
         const sequence = BigInt(12345);
 
         const chainBuffer = Buffer.alloc(2);
@@ -91,7 +92,7 @@ describe('hello-executor', () => {
         sequenceBuffer.writeBigUInt64LE(sequence);
 
         const [receivedPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from('received'), chainBuffer, sequenceBuffer],
+            [Buffer.from('received'), chainBuffer, emitterAddress, sequenceBuffer],
             PROGRAM_ID
         );
 

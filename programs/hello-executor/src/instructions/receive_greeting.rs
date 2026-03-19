@@ -88,6 +88,7 @@ pub struct ReceiveGreeting<'info> {
         seeds = [
             Received::SEED_PREFIX,
             &posted.emitter_chain().to_le_bytes()[..],
+            posted.emitter_address(),
             &posted.sequence().to_le_bytes()[..],
         ],
         bump,

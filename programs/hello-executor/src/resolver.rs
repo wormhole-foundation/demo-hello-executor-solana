@@ -139,7 +139,7 @@ fn build_resolver_result(
     vaa_body: &[u8],
 ) -> Result<Resolver<InstructionGroups>> {
     let vaa_hash = solana_program::keccak::hashv(&[vaa_body]).to_bytes();
-    let (emitter_chain, _emitter_address, sequence) = parse_vaa_body(vaa_body)?;
+    let (emitter_chain, emitter_address, sequence) = parse_vaa_body(vaa_body)?;
 
     msg!(
         "Building resolver for chain {} seq {}",
@@ -157,6 +157,7 @@ fn build_resolver_result(
         &[
             Received::SEED_PREFIX,
             &emitter_chain.to_le_bytes(),
+            &emitter_address,
             &sequence.to_le_bytes(),
         ],
         program_id,
@@ -289,6 +290,7 @@ mod tests {
             &[
                 Received::SEED_PREFIX,
                 &2u16.to_le_bytes(),
+                &[7u8; 32],
                 &9u64.to_le_bytes(),
             ],
             &program_id,

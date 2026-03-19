@@ -1,6 +1,76 @@
 import { Connection, PublicKey } from '@solana/web3.js';
+import { createHash } from 'crypto';
 
 import { CHAIN_ID_SOLANA, EXECUTOR_API } from './config.js';
+
+// ============================================================================
+// PDA Derivations
+// ============================================================================
+
+export function deriveConfigPda(programId: PublicKey): PublicKey {
+    const [pda] = PublicKey.findProgramAddressSync([Buffer.from('config')], programId);
+    return pda;
+}
+
+export function deriveEmitterPda(programId: PublicKey): PublicKey {
+    const [pda] = PublicKey.findProgramAddressSync([Buffer.from('emitter')], programId);
+    return pda;
+}
+
+export function deriveWormholeBridge(wormholeProgram: PublicKey): PublicKey {
+    const [pda] = PublicKey.findProgramAddressSync([Buffer.from('Bridge')], wormholeProgram);
+    return pda;
+}
+
+export function deriveWormholeFeeCollector(wormholeProgram: PublicKey): PublicKey {
+    const [pda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('fee_collector')],
+        wormholeProgram
+    );
+    return pda;
+}
+
+export function deriveWormholeSequence(wormholeProgram: PublicKey, emitter: PublicKey): PublicKey {
+    const [pda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('Sequence'), emitter.toBuffer()],
+        wormholeProgram
+    );
+    return pda;
+}
+
+export function derivePeerPda(programId: PublicKey, chainId: number): PublicKey {
+    const chainBuffer = Buffer.alloc(2);
+    chainBuffer.writeUInt16LE(chainId);
+    const [pda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('peer'), chainBuffer],
+        programId
+    );
+    return pda;
+}
+
+export function deriveMessagePda(programId: PublicKey, sequence: bigint): PublicKey {
+    const sequenceBuffer = Buffer.alloc(8);
+    sequenceBuffer.writeBigUInt64LE(sequence);
+    const [pda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('sent'), sequenceBuffer],
+        programId
+    );
+    return pda;
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+export function getDiscriminator(name: string): Buffer {
+    const hash = createHash('sha256');
+    hash.update(`global:${name}`);
+    return Buffer.from(hash.digest().slice(0, 8));
+}
+
+// ============================================================================
+// Polling
+// ============================================================================
 
 const POLL_ATTEMPTS = 36;
 const POLL_INTERVAL_MS = 5000;

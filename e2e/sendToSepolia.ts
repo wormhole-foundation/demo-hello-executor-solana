@@ -20,7 +20,6 @@ import {
     TransactionInstruction,
     sendAndConfirmTransaction,
 } from '@solana/web3.js';
-import { createHash } from 'crypto';
 
 import {
     config,
@@ -30,72 +29,19 @@ import {
     EXECUTOR_API,
 } from './config.js';
 import { createRelayInstructions } from './relay.js';
-import { getCurrentSequence, pollExecutorStatus, pollForVAA } from './utils.js';
-
-// ============================================================================
-// PDA Derivations
-// ============================================================================
-
-function deriveConfigPda(programId: PublicKey): PublicKey {
-    const [pda] = PublicKey.findProgramAddressSync([Buffer.from('config')], programId);
-    return pda;
-}
-
-function deriveEmitterPda(programId: PublicKey): PublicKey {
-    const [pda] = PublicKey.findProgramAddressSync([Buffer.from('emitter')], programId);
-    return pda;
-}
-
-function deriveWormholeBridge(wormholeProgram: PublicKey): PublicKey {
-    const [pda] = PublicKey.findProgramAddressSync([Buffer.from('Bridge')], wormholeProgram);
-    return pda;
-}
-
-function deriveWormholeFeeCollector(wormholeProgram: PublicKey): PublicKey {
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('fee_collector')],
-        wormholeProgram
-    );
-    return pda;
-}
-
-function deriveWormholeSequence(wormholeProgram: PublicKey, emitter: PublicKey): PublicKey {
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('Sequence'), emitter.toBuffer()],
-        wormholeProgram
-    );
-    return pda;
-}
-
-function derivePeerPda(programId: PublicKey, chainId: number): PublicKey {
-    const chainBuffer = Buffer.alloc(2);
-    chainBuffer.writeUInt16LE(chainId);
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('peer'), chainBuffer],
-        programId
-    );
-    return pda;
-}
-
-function deriveMessagePda(programId: PublicKey, sequence: bigint): PublicKey {
-    const sequenceBuffer = Buffer.alloc(8);
-    sequenceBuffer.writeBigUInt64LE(sequence);
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('sent'), sequenceBuffer],
-        programId
-    );
-    return pda;
-}
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function getDiscriminator(name: string): Buffer {
-    const hash = createHash('sha256');
-    hash.update(`global:${name}`);
-    return Buffer.from(hash.digest().slice(0, 8));
-}
+import {
+    deriveConfigPda,
+    deriveEmitterPda,
+    deriveMessagePda,
+    derivePeerPda,
+    deriveWormholeBridge,
+    deriveWormholeFeeCollector,
+    deriveWormholeSequence,
+    getDiscriminator,
+    getCurrentSequence,
+    pollExecutorStatus,
+    pollForVAA,
+} from './utils.js';
 
 /**
  * Get a signed quote from the Executor API for Solana → EVM relay.
