@@ -6,7 +6,8 @@
   "scripts": {
     "build": "anchor build",
     "test": "anchor test",
-    "e2e:send": "tsx e2e/sendToSepolia.ts"
+    "e2e:send": "tsx e2e/sendToSepolia.ts",
+    "e2e:send:onchain-quote": "tsx e2e/sendToSepoliaOnChainQuote.ts"
   },
   "author": "",
   "license": "MIT",

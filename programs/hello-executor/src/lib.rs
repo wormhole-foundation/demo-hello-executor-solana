@@ -10,6 +10,7 @@ pub mod error;
 pub mod executor_cpi;
 pub mod instructions;
 pub mod message;
+pub mod quoter_router_cpi;
 pub mod resolver;
 pub mod state;
 
@@ -54,6 +55,14 @@ pub mod hello_executor {
     /// Request Executor relay for the most recently posted message.
     pub fn request_relay(ctx: Context<RequestRelay>, args: RequestRelayArgs) -> Result<()> {
         instructions::request_relay::handler(ctx, args)
+    }
+
+    /// Request Executor relay using an on-chain quote (no API call needed).
+    pub fn request_relay_on_chain_quote(
+        ctx: Context<RequestRelayOnChainQuote>,
+        args: RequestRelayOnChainQuoteArgs,
+    ) -> Result<()> {
+        instructions::request_relay_on_chain_quote::handler(ctx, args)
     }
 
     /// Update Wormhole configuration (owner only).

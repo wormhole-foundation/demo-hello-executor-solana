@@ -99,6 +99,41 @@ describe('hello-executor', () => {
         expect(receivedPda).to.not.be.null;
     });
 
+    it('Can derive quoter infrastructure PDAs', () => {
+        const QUOTER_ROUTER_PROGRAM = new PublicKey('qtrrrV7W3E1jnX1145wXR6ZpthG19ur5xHC1n6PPhDV');
+        const QUOTER_PROGRAM = new PublicKey('qtrxiqVAfVS61utwZLUi7UKugjCgFaNxBGyskmGingz');
+        const quoterEvmAddr = Buffer.from(
+            '5241C9276698439fEf2780DbaB76fEc90B633Fbd',
+            'hex'
+        );
+
+        // QuoterRegistration PDA on router
+        const [quoterRegistration] = PublicKey.findProgramAddressSync(
+            [Buffer.from('quoter_registration'), quoterEvmAddr],
+            QUOTER_ROUTER_PROGRAM
+        );
+        console.log('Quoter Registration PDA:', quoterRegistration.toBase58());
+        expect(quoterRegistration).to.not.be.null;
+
+        // ChainInfo PDA on quoter (for Sepolia = 10002)
+        const sepoliaChainBuf = Buffer.alloc(2);
+        sepoliaChainBuf.writeUInt16LE(10002);
+        const [chainInfo] = PublicKey.findProgramAddressSync(
+            [Buffer.from('chain_info'), sepoliaChainBuf],
+            QUOTER_PROGRAM
+        );
+        console.log('Chain Info PDA (Sepolia):', chainInfo.toBase58());
+        expect(chainInfo).to.not.be.null;
+
+        // QuoteBody PDA on quoter (for Sepolia = 10002)
+        const [quoteBody] = PublicKey.findProgramAddressSync(
+            [Buffer.from('quote'), sepoliaChainBuf],
+            QUOTER_PROGRAM
+        );
+        console.log('Quote Body PDA (Sepolia):', quoteBody.toBase58());
+        expect(quoteBody).to.not.be.null;
+    });
+
     it('Has correct IDL structure', () => {
         // Verify IDL has the expected instructions
         const instructionNames = idl.instructions?.map((i: any) => i.name) || [];
@@ -109,6 +144,7 @@ describe('hello-executor', () => {
         expect(instructionNames).to.include('sendGreeting');
         expect(instructionNames).to.include('receiveGreeting');
         expect(instructionNames).to.include('requestRelay');
+        expect(instructionNames).to.include('requestRelayOnChainQuote');
         expect(instructionNames).to.include('resolveExecuteVaaV1');
         expect(instructionNames).to.include('updateWormholeConfig');
     });
@@ -133,6 +169,7 @@ describe('hello-executor', () => {
         expect(errorNames).to.include('InvalidPeer');
         expect(errorNames).to.include('UnknownEmitter');
         expect(errorNames).to.include('InvalidMessage');
+        expect(errorNames).to.include('InvalidQuoterAccount');
     });
 
     it('Has events defined', () => {
