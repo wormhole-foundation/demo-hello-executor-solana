@@ -184,7 +184,10 @@
         {
           "name": "wormholeProgram",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "Wormhole Core Bridge program."
+          ]
         },
         {
           "name": "wormholeBridge",
@@ -466,26 +469,17 @@
         {
           "name": "config",
           "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Config account."
-          ]
+          "isSigner": false
         },
         {
           "name": "wormholeProgram",
           "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Wormhole Core Bridge program."
-          ]
+          "isSigner": false
         },
         {
           "name": "systemProgram",
           "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "System program."
-          ]
+          "isSigner": false
         }
       ],
       "args": [
@@ -495,16 +489,7 @@
         }
       ],
       "returns": {
-        "definedWithTypeArgs": {
-          "name": "Resolver",
-          "args": [
-            {
-              "type": {
-                "defined": "InstructionGroups"
-              }
-            }
-          ]
-        }
+        "defined": "resolver::ResolverType<resolver::ResolverInstructionGroups>"
       }
     }
   ],
@@ -652,52 +637,42 @@
   ],
   "types": [
     {
-      "name": "MissingAccounts",
+      "name": "RequestForExecutionArgs",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "accounts",
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "dstChain",
+            "type": "u16"
+          },
+          {
+            "name": "dstAddr",
             "type": {
-              "vec": "publicKey"
+              "array": [
+                "u8",
+                32
+              ]
             }
           },
           {
-            "name": "addressLookupTables",
-            "type": {
-              "vec": "publicKey"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "Resolver",
-      "generics": [
-        "T"
-      ],
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Resolved",
-            "fields": [
-              {
-                "generic": "T"
-              }
-            ]
+            "name": "refundAddr",
+            "type": "publicKey"
           },
           {
-            "name": "Missing",
-            "fields": [
-              {
-                "defined": "MissingAccounts"
-              }
-            ]
+            "name": "signedQuoteBytes",
+            "type": "bytes"
           },
           {
-            "name": "Account",
-            "fields": []
+            "name": "requestBytes",
+            "type": "bytes"
+          },
+          {
+            "name": "relayInstructions",
+            "type": "bytes"
           }
         ]
       }
@@ -795,6 +770,49 @@
               "[SequenceTracker](wormhole_anchor_sdk::wormhole::SequenceTracker) address."
             ],
             "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "HelloExecutorMessage",
+      "docs": [
+        "Message types for the Hello Executor program.",
+        "",
+        "* `Alive` - Payload ID 0: Emitted when [`initialize`](crate::initialize) is called.",
+        "* `Hello` - Payload ID 1: Emitted when [`send_greeting`](crate::send_greeting) is called."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Alive",
+            "fields": [
+              {
+                "name": "programId",
+                "docs": [
+                  "The program ID that initialized the emitter"
+                ],
+                "type": {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Hello",
+            "fields": [
+              {
+                "name": "message",
+                "docs": [
+                  "The greeting message bytes (UTF-8 encoded string)"
+                ],
+                "type": "bytes"
+              }
+            ]
           }
         ]
       }
@@ -908,8 +926,5 @@
       "name": "NoMessagesYet",
       "msg": "NoMessagesYet"
     }
-  ],
-  "metadata": {
-    "address": "7eiTqf1b1dNwpzn27qEr4eGSWnuon2fJTbnTuWcFifZG"
-  }
+  ]
 }
