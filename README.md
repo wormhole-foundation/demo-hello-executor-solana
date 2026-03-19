@@ -21,7 +21,7 @@ npx tsx e2e/setupPeers.ts
 # Send from Solana to Sepolia (off-chain quote)
 npx tsx e2e/sendToSepolia.ts "Hello from Solana!"
 
-# Send from Solana to Sepolia (on-chain quote, no API call needed)
+# Send from Solana to Sepolia (devnet on-chain quote)
 npx tsx e2e/sendToSepoliaOnChainQuote.ts "Hello from Solana!"
 ```
 
@@ -36,11 +36,11 @@ This demo supports two approaches for requesting Executor relay:
 | Approach | Script | API Call? | How it works |
 |----------|--------|-----------|--------------|
 | **Off-chain quote** | `sendToSepolia.ts` | Yes (Executor REST API) | Fetches a signed quote from the Executor API, then passes it to `request_relay` |
-| **On-chain quote** | `sendToSepoliaOnChainQuote.ts` | No | Uses the on-chain Quoter Router to obtain pricing and request execution entirely on-chain |
+| **Devnet on-chain quote** | `sendToSepoliaOnChainQuote.ts` | Quote API: No | Uses the devnet Quoter Router to price the relay on-chain, but still needs a configured Executor payee wallet |
 
-The on-chain quote approach is simpler (no external API dependency) and mirrors the EVM integration pattern in `HelloWormholeOnChainQuote.sol`.
+Solana on-chain quotes are currently supported only on devnet. This demo therefore treats the flow as devnet-only and does not claim full parity with the EVM integration yet.
 
-> **Note:** The on-chain quote e2e script still requires a hardcoded `EXECUTOR_PAYEE_DEVNET`
+> **Note:** The devnet on-chain quote e2e script still requires a hardcoded `EXECUTOR_PAYEE_DEVNET`
 > address (the relay operator's fee wallet). This address was extracted from the Executor
 > REST API's signed quote and is **not derivable from any on-chain account**. If the relay
 > operator rotates this wallet, the constant in `config.ts` must be updated manually.
@@ -71,7 +71,7 @@ hello-executor (depth 0)
 | ChainInfo | `["chain_info", dst_chain_u16_le]` | Quoter |
 | QuoteBody | `["quote", dst_chain_u16_le]` | Quoter |
 
-### Solana → EVM (two transactions required)
+### Solana → EVM (two transactions required, devnet quoter support only)
 
 > ⚠️ **Important:** Sending from Solana to EVM is a **two-step** process.
 > Both transactions must succeed for the message to arrive.
@@ -174,6 +174,7 @@ e2e/
 ├── setupPeers.ts             # Register peers (both directions)
 ├── config.ts                 # Chain configuration
 ├── relay.ts                  # Relay instruction encoding
+├── utils.ts                  # Shared helpers (sequence, VAA polling, executor status)
 └── types.ts                  # TypeScript types
 ```
 

@@ -46,4 +46,8 @@ pub enum HelloExecutorError {
     #[msg("NoMessagesYet")]
     /// No Wormhole messages have been posted yet.
     NoMessagesYet,
+
+    #[msg("InvalidQuoterAccount")]
+    /// A quoter/router account does not match the expected devnet address or PDA.
+    InvalidQuoterAccount,
 }

@@ -1,7 +1,11 @@
 #!/usr/bin/env tsx
 /**
  * Send a greeting from Solana Devnet → Sepolia via Wormhole Executor
- * using an ON-CHAIN QUOTE (no Executor REST API call needed).
+ * using the devnet ON-CHAIN QUOTER for pricing.
+ *
+ * Important: this still needs an off-chain configured Executor payee wallet.
+ * The quote is obtained on-chain, but the payee is not currently derivable from
+ * quoter/router state, so this flow is devnet-only and partially configured.
  *
  * Flow:
  *   1. send_greeting                    — post Wormhole message to Core Bridge
@@ -29,13 +33,13 @@ import {
     loadSolanaKeypair,
     CHAIN_ID_SOLANA,
     CHAIN_ID_SEPOLIA,
-    EXECUTOR_API,
     EXECUTOR_QUOTER_ROUTER_PROGRAM,
     EXECUTOR_QUOTER_PROGRAM,
     EXECUTOR_PAYEE_DEVNET,
     QUOTER_EVM_ADDRESS,
 } from './config.js';
 import { createRelayInstructions } from './relay.js';
+import { getCurrentSequence, pollExecutorStatus, pollForVAA } from './utils.js';
 
 // ============================================================================
 // PDA Derivations (hello-executor program)
@@ -158,13 +162,43 @@ function getDiscriminator(name: string): Buffer {
     return Buffer.from(hash.digest().slice(0, 8));
 }
 
-async function getCurrentSequence(
+async function getSimulationDerivedComputeUnits(
     connection: Connection,
-    sequencePda: PublicKey
-): Promise<bigint> {
-    const accountInfo = await connection.getAccountInfo(sequencePda);
-    if (!accountInfo) return 1n;
-    return BigInt(accountInfo.data.readBigUInt64LE(0));
+    payer: PublicKey,
+    relayInstruction: TransactionInstruction
+): Promise<number> {
+    const SIMULATION_UNITS = 1_400_000;
+    const FALLBACK_UNITS = 400_000;
+    const HEADROOM_MULTIPLIER = 1.2;
+
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    const simulationTx = new Transaction({
+        feePayer: payer,
+        recentBlockhash: blockhash,
+    }).add(
+        ComputeBudgetProgram.setComputeUnitLimit({ units: SIMULATION_UNITS }),
+        relayInstruction
+    );
+
+    const simulation = await connection.simulateTransaction(simulationTx);
+
+    if (simulation.value.err) {
+        console.log('Simulation did not return a usable compute estimate; using fallback 400000 CU.');
+        return FALLBACK_UNITS;
+    }
+
+    const unitsConsumed = simulation.value.unitsConsumed;
+    if (typeof unitsConsumed !== 'number') {
+        console.log('Simulation did not report units consumed; using fallback 400000 CU.');
+        return FALLBACK_UNITS;
+    }
+
+    const derivedUnits = Math.min(
+        SIMULATION_UNITS,
+        Math.ceil(unitsConsumed * HEADROOM_MULTIPLIER)
+    );
+    console.log(`Using compute unit limit ${derivedUnits} (simulated ${unitsConsumed}).`);
+    return derivedUnits;
 }
 
 /**
@@ -190,68 +224,13 @@ function hexToBytes(hex: string): Buffer {
     return Buffer.from(cleaned, 'hex');
 }
 
-async function pollForVAA(
-    emitterChain: number,
-    emitterAddress: string,
-    sequence: number
-): Promise<any> {
-    const baseUrl = 'https://api.testnet.wormholescan.io/api/v1/vaas';
-    const paddedEmitter = emitterAddress.padStart(64, '0');
-    const url = `${baseUrl}/${emitterChain}/${paddedEmitter}/${sequence}`;
-
-    console.log(`\nPolling for VAA (chain=${emitterChain}, seq=${sequence})...`);
-
-    for (let i = 0; i < 36; i++) {
-        try {
-            const response = await fetch(url);
-            if (response.ok) {
-                const data: any = await response.json();
-                if (data.data?.vaa) return data.data;
-            }
-        } catch {}
-        await new Promise((r) => setTimeout(r, 5000));
-        process.stdout.write('.');
-    }
-    return null;
-}
-
-async function pollExecutorStatus(txHash: string): Promise<any> {
-    console.log(`\nPolling executor status...`);
-
-    for (let i = 0; i < 36; i++) {
-        try {
-            const response = await fetch(`${EXECUTOR_API}/status/tx`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chainId: CHAIN_ID_SOLANA, txHash }),
-            });
-            if (response.ok) {
-                const data: any = await response.json();
-                if (Array.isArray(data) && data.length > 0) {
-                    const item = data[0];
-                    const status = item.status;
-                    if (status === 'submitted' && item.txs?.length > 0) {
-                        return item;
-                    }
-                    if (['error', 'underpaid'].includes(status)) {
-                        return item;
-                    }
-                }
-            }
-        } catch {}
-        await new Promise((r) => setTimeout(r, 5000));
-        process.stdout.write('.');
-    }
-    return null;
-}
-
 // ============================================================================
 // Main
 // ============================================================================
 
 async function main() {
     console.log('='.repeat(60));
-    console.log('  Solana Devnet -> Sepolia (On-Chain Quote)');
+    console.log('  Solana Devnet -> Sepolia (Devnet On-Chain Quote)');
     console.log('='.repeat(60) + '\n');
 
     const greeting = process.argv[2] || 'Hello from Solana (on-chain quote)!';
@@ -296,17 +275,12 @@ async function main() {
     const wormholeMessage = deriveMessagePda(programId, pdaSequence);
 
     console.log(`\nVAA sequence:  ${vaaSequence}`);
-    console.log(`Message PDA slot: ${pdaSequence}`);
-    console.log(`Emitter PDA: ${emitterPda.toBase58()}`);
 
-    // Get payee (fee recipient) for the executor relay
+    // Get payee (fee recipient) for the executor relay. This remains a
+    // devnet configuration input even though quote pricing comes from chain state.
     const payee = getPayee();
     console.log(`Payee: ${payee.toBase58()}`);
 
-    console.log(`\nQuoter PDAs:`);
-    console.log(`  Registration: ${quoterRegistration.toBase58()}`);
-    console.log(`  Chain Info:   ${quoterChainInfo.toBase58()}`);
-    console.log(`  Quote Body:   ${quoterQuoteBody.toBase58()}`);
 
     // == Step 1: send_greeting ================================================
     console.log('\n-- Step 1: Sending greeting message...');
@@ -393,11 +367,6 @@ async function main() {
     const relayDiscriminator = getDiscriminator('request_relay_on_chain_quote');
     const relayData = Buffer.concat([relayDiscriminator, argsBuffer]);
 
-    // Set compute budget to 400k CU for the nested CPI chain
-    const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({
-        units: 400_000,
-    });
-
     const relayInstruction = new TransactionInstruction({
         keys: [
             // hello-executor accounts
@@ -424,9 +393,17 @@ async function main() {
         data: relayData,
     });
 
+    const computeUnits = await getSimulationDerivedComputeUnits(
+        connection,
+        keypair.publicKey,
+        relayInstruction
+    );
     const relaySig = await sendAndConfirmTransaction(
         connection,
-        new Transaction().add(computeBudgetIx, relayInstruction),
+        new Transaction().add(
+            ComputeBudgetProgram.setComputeUnitLimit({ units: computeUnits }),
+            relayInstruction
+        ),
         [keypair],
         { commitment: 'confirmed' }
     );

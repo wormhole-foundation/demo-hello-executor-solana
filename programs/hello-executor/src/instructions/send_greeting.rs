@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{self, instruction::Instruction, program::invoke_signed};
+use wormhole_anchor_sdk::wormhole::program::Wormhole;
 
 use crate::{
     error::HelloExecutorError,
@@ -22,8 +23,8 @@ pub struct SendGreeting<'info> {
     /// Config account with Wormhole addresses.
     pub config: Account<'info, Config>,
 
-    /// CHECK: Wormhole Core Bridge program - any chain's Wormhole program
-    pub wormhole_program: UncheckedAccount<'info>,
+    /// Wormhole Core Bridge program.
+    pub wormhole_program: Program<'info, Wormhole>,
 
     /// CHECK: Wormhole bridge data - verified by config.wormhole.bridge
     #[account(
@@ -46,8 +47,11 @@ pub struct SendGreeting<'info> {
     /// Program's emitter account.
     pub wormhole_emitter: Account<'info, WormholeEmitter>,
 
-    /// CHECK: Emitter's sequence account
-    #[account(mut)]
+    /// CHECK: Emitter's sequence account. Verified via config.
+    #[account(
+        mut,
+        address = config.wormhole.sequence @ HelloExecutorError::InvalidWormholeSequence,
+    )]
     pub wormhole_sequence: UncheckedAccount<'info>,
 
     /// CHECK: Wormhole message account. Written by Wormhole program.
@@ -161,10 +165,8 @@ pub(crate) fn handler(ctx: Context<SendGreeting>, greeting: String) -> Result<()
 
     // Derive the message PDA bump using pda_sequence
     let pda_seq_buf = pda_sequence.to_le_bytes();
-    let (_, message_bump) = Pubkey::find_program_address(
-        &[SEED_PREFIX_SENT, &pda_seq_buf],
-        ctx.program_id,
-    );
+    let (_, message_bump) =
+        Pubkey::find_program_address(&[SEED_PREFIX_SENT, &pda_seq_buf], ctx.program_id);
 
     invoke_signed(
         &ix,

@@ -30,6 +30,7 @@ import {
     EXECUTOR_API,
 } from './config.js';
 import { createRelayInstructions } from './relay.js';
+import { getCurrentSequence, pollExecutorStatus, pollForVAA } from './utils.js';
 
 // ============================================================================
 // PDA Derivations
@@ -94,97 +95,6 @@ function getDiscriminator(name: string): Buffer {
     const hash = createHash('sha256');
     hash.update(`global:${name}`);
     return Buffer.from(hash.digest().slice(0, 8));
-}
-
-/**
- * Get the current Wormhole sequence tracker value.
- *
- * The tracker stores the sequence Wormhole will assign to the NEXT post_message
- * call — i.e. the actual VAA sequence for the upcoming send_greeting call.
- *
- * The message PDA uses tracker+1 to avoid the init PDA slot; VAA polling uses
- * the raw tracker value. Both are derived from this return value.
- *
- * TODO(redeploy): This matches send_greeting.rs as of the current deployment.
- * If ever the init sequence convention changes, re-verify against the program.
- */
-async function getCurrentSequence(
-    connection: Connection,
-    sequencePda: PublicKey
-): Promise<bigint> {
-    const accountInfo = await connection.getAccountInfo(sequencePda);
-    if (!accountInfo) return 1n;
-    return BigInt(accountInfo.data.readBigUInt64LE(0));
-}
-
-async function pollForVAA(
-    emitterChain: number,
-    emitterAddress: string,
-    sequence: number
-): Promise<any> {
-    const baseUrl = 'https://api.testnet.wormholescan.io/api/v1/vaas';
-    const paddedEmitter = emitterAddress.padStart(64, '0');
-    const url = `${baseUrl}/${emitterChain}/${paddedEmitter}/${sequence}`;
-
-    console.log(`\nPolling for VAA (chain=${emitterChain}, seq=${sequence})...`);
-
-    for (let i = 0; i < 36; i++) {
-        // 3 minutes max
-        try {
-            const response = await fetch(url);
-            if (response.ok) {
-                const data: any = await response.json();
-                if (data.data?.vaa) return data.data;
-            }
-        } catch {}
-        await new Promise((r) => setTimeout(r, 5000));
-        process.stdout.write('.');
-    }
-    return null;
-}
-
-/**
- * Poll the Executor API for relay status on a Solana-source transaction.
- *
- * The Executor API uses POST (not GET) for status queries.
- * The terminal statuses for a Solana→EVM relay are:
- *   - "submitted": relay TX has been included in a block on the destination chain.
- *                  The `txs` array contains the destination TX hash(es).
- *                  This is the success state.
- *   - "error":     relay failed (e.g. execution reverted on destination).
- *   - "underpaid": insufficient payment to the Executor.
- * Non-terminal: "pending" (waiting for VAA), "processing" (in flight).
- */
-async function pollExecutorStatus(txHash: string): Promise<any> {
-    console.log(`\nPolling executor status...`);
-
-    for (let i = 0; i < 36; i++) {
-        // 3 minutes max
-        try {
-            const response = await fetch(`${EXECUTOR_API}/status/tx`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chainId: CHAIN_ID_SOLANA, txHash }),
-            });
-            if (response.ok) {
-                const data: any = await response.json();
-                if (Array.isArray(data) && data.length > 0) {
-                    const item = data[0];
-                    const status = item.status;
-                    // "submitted" = delivered; txs[] contains destination TX(es)
-                    if (status === 'submitted' && item.txs?.length > 0) {
-                        return item;
-                    }
-                    if (['error', 'underpaid'].includes(status)) {
-                        return item;
-                    }
-                }
-            }
-        } catch {}
-        await new Promise((r) => setTimeout(r, 5000));
-        process.stdout.write('.');
-    }
-    return null;
 }
 
 /**

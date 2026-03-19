@@ -169,6 +169,7 @@ describe('hello-executor', () => {
         expect(errorNames).to.include('InvalidPeer');
         expect(errorNames).to.include('UnknownEmitter');
         expect(errorNames).to.include('InvalidMessage');
+        expect(errorNames).to.include('InvalidQuoterAccount');
     });
 
     it('Has events defined', () => {

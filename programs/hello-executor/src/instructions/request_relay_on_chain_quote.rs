@@ -102,6 +102,56 @@ pub(crate) fn handler(
     ctx: Context<RequestRelayOnChainQuote>,
     args: RequestRelayOnChainQuoteArgs,
 ) -> Result<()> {
+    let quoter_router_program_id = ctx.accounts.quoter_router_program.key();
+    let quoter_program_id = ctx.accounts.quoter_program.key();
+
+    let (expected_router_config, _) = quoter_router_cpi::derive_config(&quoter_router_program_id);
+    require_keys_eq!(
+        ctx.accounts.quoter_router_config.key(),
+        expected_router_config,
+        HelloExecutorError::InvalidQuoterAccount
+    );
+
+    let (expected_quoter_registration, _) = quoter_router_cpi::derive_quoter_registration(
+        &quoter_router_program_id,
+        &args.quoter_address,
+    );
+    require_keys_eq!(
+        ctx.accounts.quoter_registration.key(),
+        expected_quoter_registration,
+        HelloExecutorError::InvalidQuoterAccount
+    );
+
+    let (expected_quoter_config, _) = quoter_router_cpi::derive_config(&quoter_program_id);
+    require_keys_eq!(
+        ctx.accounts.quoter_config.key(),
+        expected_quoter_config,
+        HelloExecutorError::InvalidQuoterAccount
+    );
+
+    let (expected_chain_info, _) =
+        quoter_router_cpi::derive_chain_info(&quoter_program_id, args.dst_chain);
+    require_keys_eq!(
+        ctx.accounts.quoter_chain_info.key(),
+        expected_chain_info,
+        HelloExecutorError::InvalidQuoterAccount
+    );
+
+    let (expected_quote_body, _) =
+        quoter_router_cpi::derive_quote_body(&quoter_program_id, args.dst_chain);
+    require_keys_eq!(
+        ctx.accounts.quoter_quote_body.key(),
+        expected_quote_body,
+        HelloExecutorError::InvalidQuoterAccount
+    );
+
+    let (expected_event_cpi, _) = quoter_router_cpi::derive_event_authority(&quoter_program_id);
+    require_keys_eq!(
+        ctx.accounts.event_cpi.key(),
+        expected_event_cpi,
+        HelloExecutorError::InvalidQuoterAccount
+    );
+
     // ── Sequence validation (same as request_relay) ──────────────────────────
     let seq_data = ctx.accounts.wormhole_sequence.try_borrow_data()?;
     let tracker = u64::from_le_bytes(seq_data[0..8].try_into().unwrap());
