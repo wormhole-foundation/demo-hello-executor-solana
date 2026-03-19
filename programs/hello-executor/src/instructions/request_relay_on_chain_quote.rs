@@ -78,7 +78,9 @@ pub struct RequestRelayOnChainQuote<'info> {
     /// Executor program.
     pub executor_program: Program<'info, ExecutorProgram>,
 
-    /// CHECK: Payee account that receives execution payment.
+    /// CHECK: Payee account — the relay operator's fee wallet. Validated downstream
+    /// by the Executor/Quoter Router programs, not derivable from on-chain state.
+    /// See config.ts EXECUTOR_PAYEE_DEVNET for how this address is obtained.
     #[account(mut)]
     pub payee: UncheckedAccount<'info>,
 
@@ -153,6 +155,11 @@ pub(crate) fn handler(
     );
 
     // ── Sequence validation (same as request_relay) ──────────────────────────
+    // After initialize(), the tracker == 1 because the Alive message consumed sequence 0.
+    // That means there are no user greeting messages yet — nothing worth paying
+    // to relay. Relaying sequence 0 would send the Alive init message to the EVM side,
+    // which is not useful.
+    // Valid greeting sequences start at 1, so require tracker > 1 for any relayable greeting.
     let seq_data = ctx.accounts.wormhole_sequence.try_borrow_data()?;
     let tracker = u64::from_le_bytes(seq_data[0..8].try_into().unwrap());
     drop(seq_data);
