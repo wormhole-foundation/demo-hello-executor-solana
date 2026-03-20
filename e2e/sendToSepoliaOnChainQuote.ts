@@ -37,74 +37,14 @@ import {
 import { createRelayInstructions } from './relay.js';
 import {
     buildSendGreetingInstruction,
-    deriveConfigPda,
-    deriveEmitterPda,
-    deriveMessagePda,
-    derivePeerPda,
-    deriveWormholeBridge,
-    deriveWormholeFeeCollector,
-    deriveWormholeSequence,
+    derivePda,
+    u16le,
+    u64le,
     getDiscriminator,
     getCurrentSequence,
     pollExecutorStatus,
     pollForVAA,
 } from './utils.js';
-
-// ============================================================================
-// PDA Derivations (quoter infrastructure)
-// ============================================================================
-
-function deriveQuoterRegistration(routerProgram: PublicKey, quoterEvmAddr: Buffer): PublicKey {
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('quoter_registration'), quoterEvmAddr],
-        routerProgram
-    );
-    return pda;
-}
-
-function deriveChainInfo(quoterProgram: PublicKey, dstChain: number): PublicKey {
-    const chainBuffer = Buffer.alloc(2);
-    chainBuffer.writeUInt16LE(dstChain);
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('chain_info'), chainBuffer],
-        quoterProgram
-    );
-    return pda;
-}
-
-function deriveQuoteBody(quoterProgram: PublicKey, dstChain: number): PublicKey {
-    const chainBuffer = Buffer.alloc(2);
-    chainBuffer.writeUInt16LE(dstChain);
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('quote'), chainBuffer],
-        quoterProgram
-    );
-    return pda;
-}
-
-function deriveQuoterConfig(quoterProgram: PublicKey): PublicKey {
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('config')],
-        quoterProgram
-    );
-    return pda;
-}
-
-function deriveRouterConfig(routerProgram: PublicKey): PublicKey {
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('config')],
-        routerProgram
-    );
-    return pda;
-}
-
-function deriveEventCpi(quoterProgram: PublicKey): PublicKey {
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('__event_authority')],
-        quoterProgram
-    );
-    return pda;
-}
 
 // ============================================================================
 // Helpers
@@ -249,27 +189,27 @@ async function main() {
     const quoterProgram = EXECUTOR_QUOTER_PROGRAM;
 
     // Derive hello-executor PDAs
-    const configPda = deriveConfigPda(programId);
-    const emitterPda = deriveEmitterPda(programId);
-    const wormholeBridge = deriveWormholeBridge(wormholeProgram);
-    const wormholeFeeCollector = deriveWormholeFeeCollector(wormholeProgram);
-    const wormholeSequence = deriveWormholeSequence(wormholeProgram, emitterPda);
-    const peerPda = derivePeerPda(programId, CHAIN_ID_SEPOLIA);
+    const configPda = derivePda(programId, 'config');
+    const emitterPda = derivePda(programId, 'emitter');
+    const wormholeBridge = derivePda(wormholeProgram, 'Bridge');
+    const wormholeFeeCollector = derivePda(wormholeProgram, 'fee_collector');
+    const wormholeSequence = derivePda(wormholeProgram, 'Sequence', emitterPda.toBuffer());
+    const peerPda = derivePda(programId, 'peer', u16le(CHAIN_ID_SEPOLIA));
 
     // Derive quoter infrastructure PDAs
     const quoterEvmAddr = hexToBytes(QUOTER_EVM_ADDRESS);
-    const quoterRegistration = deriveQuoterRegistration(quoterRouterProgram, quoterEvmAddr);
-    const quoterRouterConfig = deriveRouterConfig(quoterRouterProgram);
-    const quoterChainInfo = deriveChainInfo(quoterProgram, CHAIN_ID_SEPOLIA);
-    const quoterQuoteBody = deriveQuoteBody(quoterProgram, CHAIN_ID_SEPOLIA);
-    const quoterConfig = deriveQuoterConfig(quoterProgram);
-    const eventCpi = deriveEventCpi(quoterProgram);
+    const quoterRegistration = derivePda(quoterRouterProgram, 'quoter_registration', quoterEvmAddr);
+    const quoterRouterConfig = derivePda(quoterRouterProgram, 'config');
+    const quoterChainInfo = derivePda(quoterProgram, 'chain_info', u16le(CHAIN_ID_SEPOLIA));
+    const quoterQuoteBody = derivePda(quoterProgram, 'quote', u16le(CHAIN_ID_SEPOLIA));
+    const quoterConfig = derivePda(quoterProgram, 'config');
+    const eventCpi = derivePda(quoterProgram, '__event_authority');
 
     // vaaSequence = actual Wormhole VAA sequence (= tracker value)
     // pdaSequence = vaaSequence + 1 (to avoid colliding with the init message PDA slot)
     const vaaSequence = await getCurrentSequence(connection, wormholeSequence);
     const pdaSequence = vaaSequence + 1n;
-    const wormholeMessage = deriveMessagePda(programId, pdaSequence);
+    const wormholeMessage = derivePda(programId, 'sent', u64le(pdaSequence));
 
     console.log(`\nVAA sequence:  ${vaaSequence}`);
 

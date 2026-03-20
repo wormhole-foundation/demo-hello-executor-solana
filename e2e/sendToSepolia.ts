@@ -29,13 +29,9 @@ import {
 import { createRelayInstructions } from './relay.js';
 import {
     buildSendGreetingInstruction,
-    deriveConfigPda,
-    deriveEmitterPda,
-    deriveMessagePda,
-    derivePeerPda,
-    deriveWormholeBridge,
-    deriveWormholeFeeCollector,
-    deriveWormholeSequence,
+    derivePda,
+    u16le,
+    u64le,
     getDiscriminator,
     getCurrentSequence,
     pollExecutorStatus,
@@ -111,18 +107,18 @@ async function main() {
     const executorProgram = config.solana.executorProgram;
 
     // Derive PDAs
-    const configPda = deriveConfigPda(programId);
-    const emitterPda = deriveEmitterPda(programId);
-    const wormholeBridge = deriveWormholeBridge(wormholeProgram);
-    const wormholeFeeCollector = deriveWormholeFeeCollector(wormholeProgram);
-    const wormholeSequence = deriveWormholeSequence(wormholeProgram, emitterPda);
-    const peerPda = derivePeerPda(programId, CHAIN_ID_SEPOLIA);
+    const configPda = derivePda(programId, 'config');
+    const emitterPda = derivePda(programId, 'emitter');
+    const wormholeBridge = derivePda(wormholeProgram, 'Bridge');
+    const wormholeFeeCollector = derivePda(wormholeProgram, 'fee_collector');
+    const wormholeSequence = derivePda(wormholeProgram, 'Sequence', emitterPda.toBuffer());
+    const peerPda = derivePda(programId, 'peer', u16le(CHAIN_ID_SEPOLIA));
 
     // vaaSequence = actual Wormhole VAA sequence (= tracker value)
     // pdaSequence = vaaSequence + 1 (to avoid colliding with the init message PDA slot)
     const vaaSequence = await getCurrentSequence(connection, wormholeSequence);
     const pdaSequence = vaaSequence + 1n;
-    const wormholeMessage = deriveMessagePda(programId, pdaSequence);
+    const wormholeMessage = derivePda(programId, 'sent', u64le(pdaSequence));
 
     console.log(`\nVAA sequence:  ${vaaSequence}`);
     console.log(`Message PDA slot: ${pdaSequence}`);

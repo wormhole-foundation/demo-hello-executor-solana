@@ -14,55 +14,29 @@ import { CHAIN_ID_SOLANA, EXECUTOR_API } from './config.js';
 // PDA Derivations
 // ============================================================================
 
-export function deriveConfigPda(programId: PublicKey): PublicKey {
-    const [pda] = PublicKey.findProgramAddressSync([Buffer.from('config')], programId);
-    return pda;
-}
-
-export function deriveEmitterPda(programId: PublicKey): PublicKey {
-    const [pda] = PublicKey.findProgramAddressSync([Buffer.from('emitter')], programId);
-    return pda;
-}
-
-export function deriveWormholeBridge(wormholeProgram: PublicKey): PublicKey {
-    const [pda] = PublicKey.findProgramAddressSync([Buffer.from('Bridge')], wormholeProgram);
-    return pda;
-}
-
-export function deriveWormholeFeeCollector(wormholeProgram: PublicKey): PublicKey {
+/**
+ * Generic PDA derivation. Seeds can be strings (converted to Buffer) or Buffers.
+ */
+export function derivePda(programId: PublicKey, ...seeds: (string | Buffer | Uint8Array)[]): PublicKey {
     const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('fee_collector')],
-        wormholeProgram
-    );
-    return pda;
-}
-
-export function deriveWormholeSequence(wormholeProgram: PublicKey, emitter: PublicKey): PublicKey {
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('Sequence'), emitter.toBuffer()],
-        wormholeProgram
-    );
-    return pda;
-}
-
-export function derivePeerPda(programId: PublicKey, chainId: number): PublicKey {
-    const chainBuffer = Buffer.alloc(2);
-    chainBuffer.writeUInt16LE(chainId);
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('peer'), chainBuffer],
+        seeds.map(s => typeof s === 'string' ? Buffer.from(s) : s),
         programId
     );
     return pda;
 }
 
-export function deriveMessagePda(programId: PublicKey, sequence: bigint): PublicKey {
-    const sequenceBuffer = Buffer.alloc(8);
-    sequenceBuffer.writeBigUInt64LE(sequence);
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('sent'), sequenceBuffer],
-        programId
-    );
-    return pda;
+/** Encode a u16 as a 2-byte little-endian Buffer. */
+export function u16le(value: number): Buffer {
+    const buf = Buffer.alloc(2);
+    buf.writeUInt16LE(value);
+    return buf;
+}
+
+/** Encode a u64 as an 8-byte little-endian Buffer. */
+export function u64le(value: bigint): Buffer {
+    const buf = Buffer.alloc(8);
+    buf.writeBigUInt64LE(value);
+    return buf;
 }
 
 // ============================================================================
