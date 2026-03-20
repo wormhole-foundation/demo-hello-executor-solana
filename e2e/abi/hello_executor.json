@@ -480,7 +480,12 @@
         {
           "name": "payee",
           "isMut": true,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "quoter router (account #5) and verified against the quoter's return data.",
+            "Discoverable by simulating the quoter's RequestExecutionQuote instruction",
+            "(discriminator [3,0,0,0,0,0,0,0]) — see sendToSepoliaOnChainQuote.ts."
+          ]
         },
         {
           "name": "systemProgram",
@@ -609,7 +614,16 @@
         }
       ],
       "returns": {
-        "defined": "resolver::ResolverType<resolver::ResolverInstructionGroups>"
+        "definedWithTypeArgs": {
+          "name": "Resolver",
+          "args": [
+            {
+              "type": {
+                "defined": "InstructionGroups"
+              }
+            }
+          ]
+        }
       }
     }
   ],
@@ -757,102 +771,52 @@
   ],
   "types": [
     {
-      "name": "RequestForExecutionArgs",
+      "name": "MissingAccounts",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "amount",
-            "type": "u64"
-          },
-          {
-            "name": "dstChain",
-            "type": "u16"
-          },
-          {
-            "name": "dstAddr",
+            "name": "accounts",
             "type": {
-              "array": [
-                "u8",
-                32
-              ]
+              "vec": "publicKey"
             }
           },
           {
-            "name": "refundAddr",
-            "type": "publicKey"
-          },
-          {
-            "name": "signedQuoteBytes",
-            "type": "bytes"
-          },
-          {
-            "name": "requestBytes",
-            "type": "bytes"
-          },
-          {
-            "name": "relayInstructions",
-            "type": "bytes"
+            "name": "addressLookupTables",
+            "type": {
+              "vec": "publicKey"
+            }
           }
         ]
       }
     },
     {
-      "name": "RequestRelayOnChainQuoteArgs",
-      "docs": [
-        "Arguments for requesting an Executor relay using an on-chain quote.",
-        "",
-        "Like [`RequestRelayArgs`](super::request_relay::RequestRelayArgs), this requests",
-        "Executor relay for a published Wormhole message, but obtains the quote on-chain",
-        "via the Executor Quoter Router instead of requiring a pre-signed off-chain quote."
+      "name": "Resolver",
+      "generics": [
+        "T"
       ],
       "type": {
-        "kind": "struct",
-        "fields": [
+        "kind": "enum",
+        "variants": [
           {
-            "name": "dstChain",
-            "docs": [
-              "Wormhole chain ID of the destination chain."
-            ],
-            "type": "u16"
+            "name": "Resolved",
+            "fields": [
+              {
+                "generic": "T"
+              }
+            ]
           },
           {
-            "name": "execAmount",
-            "docs": [
-              "Amount to pay the Executor (lamports). Should be a generous estimate;",
-              "the router/executor handles excess."
-            ],
-            "type": "u64"
+            "name": "Missing",
+            "fields": [
+              {
+                "defined": "MissingAccounts"
+              }
+            ]
           },
           {
-            "name": "quoterAddress",
-            "docs": [
-              "EVM address of the quoter (20 bytes)."
-            ],
-            "type": {
-              "array": [
-                "u8",
-                20
-              ]
-            }
-          },
-          {
-            "name": "relayInstructions",
-            "docs": [
-              "Relay instructions bytes (encodes gas limit + msgValue for the destination)."
-            ],
-            "type": "bytes"
-          },
-          {
-            "name": "sequence",
-            "docs": [
-              "The specific VAA sequence to relay.",
-              "- `None` → relay the most recently published message (current tracker − 1)",
-              "- `Some(n)` → relay the message at sequence `n`"
-            ],
-            "type": {
-              "option": "u64"
-            }
+            "name": "Account",
+            "fields": []
           }
         ]
       }
@@ -923,6 +887,66 @@
       }
     },
     {
+      "name": "RequestRelayOnChainQuoteArgs",
+      "docs": [
+        "Arguments for requesting an Executor relay using an on-chain quote.",
+        "",
+        "Like [`RequestRelayArgs`](super::request_relay::RequestRelayArgs), this requests",
+        "Executor relay for a published Wormhole message, but obtains the quote on-chain",
+        "via the Executor Quoter Router instead of requiring a pre-signed off-chain quote."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "dstChain",
+            "docs": [
+              "Wormhole chain ID of the destination chain."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "execAmount",
+            "docs": [
+              "Amount to pay the Executor (lamports). Should be a generous estimate;",
+              "the router/executor handles excess."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "quoterAddress",
+            "docs": [
+              "EVM address of the quoter (20 bytes)."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                20
+              ]
+            }
+          },
+          {
+            "name": "relayInstructions",
+            "docs": [
+              "Relay instructions bytes (encodes gas limit + msgValue for the destination)."
+            ],
+            "type": "bytes"
+          },
+          {
+            "name": "sequence",
+            "docs": [
+              "The specific VAA sequence to relay.",
+              "- `None` → relay the most recently published message (current tracker − 1)",
+              "- `Some(n)` → relay the message at sequence `n`"
+            ],
+            "type": {
+              "option": "u64"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "WormholeAddresses",
       "docs": [
         "Wormhole program related addresses stored in config."
@@ -950,49 +974,6 @@
               "[SequenceTracker](wormhole_anchor_sdk::wormhole::SequenceTracker) address."
             ],
             "type": "publicKey"
-          }
-        ]
-      }
-    },
-    {
-      "name": "HelloExecutorMessage",
-      "docs": [
-        "Message types for the Hello Executor program.",
-        "",
-        "* `Alive` - Payload ID 0: Emitted when [`initialize`](crate::initialize) is called.",
-        "* `Hello` - Payload ID 1: Emitted when [`send_greeting`](crate::send_greeting) is called."
-      ],
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Alive",
-            "fields": [
-              {
-                "name": "programId",
-                "docs": [
-                  "The program ID that initialized the emitter"
-                ],
-                "type": {
-                  "array": [
-                    "u8",
-                    32
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "name": "Hello",
-            "fields": [
-              {
-                "name": "message",
-                "docs": [
-                  "The greeting message bytes (UTF-8 encoded string)"
-                ],
-                "type": "bytes"
-              }
-            ]
           }
         ]
       }
