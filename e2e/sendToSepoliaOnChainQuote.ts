@@ -162,10 +162,6 @@ function hexToBytes(hex: string): Buffer {
     return Buffer.from(cleaned, 'hex');
 }
 
-// ============================================================================
-// Main
-// ============================================================================
-
 async function main() {
     console.log('='.repeat(60));
     console.log('  Solana Devnet -> Sepolia (Devnet On-Chain Quote)');
