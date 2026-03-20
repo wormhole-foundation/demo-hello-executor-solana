@@ -30,10 +30,6 @@ impl Id for QuoterProgram {
     }
 }
 
-// ============================================================================
-// Constants
-// ============================================================================
-
 /// Default quoter EVM address (20 bytes).
 /// Corresponds to `0x5241C9276698439fEf2780DbaB76fEc90B633Fbd`.
 pub const DEFAULT_QUOTER_EVM_ADDRESS: [u8; 20] = [
