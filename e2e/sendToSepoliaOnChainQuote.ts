@@ -43,7 +43,6 @@ import {
     getDiscriminator,
     getCurrentSequence,
     pollExecutorStatus,
-    pollForVAA,
 } from './utils.js';
 
 // ============================================================================
@@ -337,17 +336,6 @@ async function main() {
     console.log(
         `Explorer: https://explorer.solana.com/tx/${relaySig}?cluster=devnet`
     );
-
-    // == Poll for completion ==================================================
-
-    const emitterHex = Buffer.from(emitterPda.toBytes()).toString('hex');
-    const vaaData = await pollForVAA(CHAIN_ID_SOLANA, emitterHex, Number(vaaSequence));
-
-    if (vaaData) {
-        console.log('\n\nVAA signed!');
-    } else {
-        console.log('\n\nVAA not signed within timeout');
-    }
 
     const relayResult = await pollExecutorStatus(relaySig);
 
