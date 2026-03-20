@@ -41,10 +41,6 @@ pub const DEFAULT_QUOTER_EVM_ADDRESS: [u8; 20] = [
     0x0B, 0x63, 0x3F, 0xbd,
 ];
 
-// ============================================================================
-// PDA Derivation
-// ============================================================================
-
 /// Derive the QuoterRegistration PDA on the router program.
 /// Seeds: `["quoter_registration", quoter_evm_addr_20bytes]`
 pub fn derive_quoter_registration(
