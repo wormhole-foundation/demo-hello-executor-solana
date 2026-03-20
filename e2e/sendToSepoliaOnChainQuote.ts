@@ -262,9 +262,8 @@ async function main() {
     // == Step 2: request_relay_on_chain_quote ==================================
     console.log('\n-- Step 2: Requesting relay with on-chain quote...');
 
-    // Amount to pay the Executor (lamports). This is a generous overpayment —
-    // the quoter router refunds excess to the payer. If too low, the router CPI
-    // will reject the transaction. Typical devnet costs are ~0.001 SOL.
+    // Amount to pay the Executor (lamports). Overpayment is fine —
+    // the quoter router refunds excess to the payer.
     const EXEC_AMOUNT_LAMPORTS = 100_000_000n; // 0.1 SOL
 
     // Quoter EVM address as 20-byte array
