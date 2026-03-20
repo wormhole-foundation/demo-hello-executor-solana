@@ -40,7 +40,6 @@ export const WORMHOLE_CORE_BRIDGE_SOLANA = '3u8hJUVTA4jH1wYAyUur7FFZVQ8H635K3tSH
 export const EXECUTOR_PROGRAM_SOLANA = 'execXUrAsMnqMmTHj5m7N1YQgsDz3cwGLYCYyuDRciV';
 
 // On-chain quoter infrastructure (devnet only).
-// Solana on-chain quotes are currently supported only on devnet.
 export const EXECUTOR_QUOTER_ROUTER_PROGRAM = new PublicKey('qtrrrV7W3E1jnX1145wXR6ZpthG19ur5xHC1n6PPhDV');
 export const EXECUTOR_QUOTER_PROGRAM = new PublicKey('qtrxiqVAfVS61utwZLUi7UKugjCgFaNxBGyskmGingz');
 export const QUOTER_EVM_ADDRESS = '5241C9276698439fEf2780DbaB76fEc90B633Fbd';
