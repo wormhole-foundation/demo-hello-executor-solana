@@ -71,7 +71,8 @@ async function getSimulationDerivedComputeUnits(
     const simulation = await connection.simulateTransaction(simulationTx);
 
     if (simulation.value.err) {
-        console.log('Simulation did not return a usable compute estimate; using fallback 400000 CU.');
+        console.log('Simulation error:', JSON.stringify(simulation.value.err));
+        console.log('Using fallback compute unit limit:', FALLBACK_UNITS);
         return FALLBACK_UNITS;
     }
 
@@ -150,8 +151,8 @@ async function discoverPayee(
     }
 
     const decoded = Buffer.from(returnData.data[0], 'base64');
-    if (decoded.length < 40) {
-        throw new Error(`Unexpected return data length: ${decoded.length} (expected 72)`);
+    if (decoded.length !== 72) {
+        throw new Error(`Unexpected return data length: ${decoded.length} (expected 72: u64 payment + 32-byte payee + 32-byte quote_body)`);
     }
     return new PublicKey(decoded.slice(8, 40));
 }
@@ -266,7 +267,9 @@ async function main() {
     // == Step 2: request_relay_on_chain_quote ==================================
     console.log('\n-- Step 2: Requesting relay with on-chain quote...');
 
-    // Generous estimate for execution cost (excess handled by router/executor)
+    // Amount to pay the Executor (lamports). This is a generous overpayment —
+    // the quoter router refunds excess to the payer. If too low, the router CPI
+    // will reject the transaction. Typical devnet costs are ~0.001 SOL.
     const EXEC_AMOUNT_LAMPORTS = 100_000_000n; // 0.1 SOL
 
     // Quoter EVM address as 20-byte array

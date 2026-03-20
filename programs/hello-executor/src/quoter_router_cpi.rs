@@ -11,6 +11,7 @@ use std::str::FromStr;
 #[derive(Clone)]
 pub struct QuoterRouterProgram;
 
+// Devnet only — update these for mainnet deployment.
 pub const QUOTER_ROUTER_PROGRAM_ID: &str = "qtrrrV7W3E1jnX1145wXR6ZpthG19ur5xHC1n6PPhDV";
 pub const QUOTER_PROGRAM_ID: &str = "qtrxiqVAfVS61utwZLUi7UKugjCgFaNxBGyskmGingz";
 
