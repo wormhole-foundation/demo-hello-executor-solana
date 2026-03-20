@@ -82,6 +82,9 @@ pub fn derive_event_authority(quoter_program: &Pubkey) -> (Pubkey, u8) {
 
 /// Build and invoke the RequestExecution instruction on the quoter router.
 ///
+/// Account layout and data format from the router source:
+/// https://github.com/wormholelabs-xyz/example-messaging-executor/blob/main/svm/pinocchio/programs/executor-quoter-router/src/instructions/request_execution.rs
+///
 /// The router dispatches to the quoter which gets a price, then CPIs to the
 /// executor to register the relay and collect payment.
 ///

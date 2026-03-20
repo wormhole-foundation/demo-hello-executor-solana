@@ -36,15 +36,9 @@ This demo supports two approaches for requesting Executor relay:
 | Approach | Script | API Call? | How it works |
 |----------|--------|-----------|--------------|
 | **Off-chain quote** | `sendToSepolia.ts` | Yes (Executor REST API) | Fetches a signed quote from the Executor API, then passes it to `request_relay` |
-| **Devnet on-chain quote** | `sendToSepoliaOnChainQuote.ts` | Quote API: No | Uses the devnet Quoter Router to price the relay on-chain, but still needs a configured Executor payee wallet |
+| **Devnet on-chain quote** | `sendToSepoliaOnChainQuote.ts` | No | Quote and payee are both discovered on-chain via the Quoter Router / Quoter programs |
 
 Solana on-chain quotes are currently supported only on devnet. This demo therefore treats the flow as devnet-only and does not claim full parity with the EVM integration yet.
-
-> **Note:** The devnet on-chain quote e2e script still requires a hardcoded `EXECUTOR_PAYEE_DEVNET`
-> address (the relay operator's fee wallet). This address was extracted from the Executor
-> REST API's signed quote and is **not derivable from any on-chain account**. If the relay
-> operator rotates this wallet, the constant in `config.ts` must be updated manually.
-> Override via the `EXECUTOR_PAYEE` environment variable.
 
 #### On-chain quote CPI chain
 

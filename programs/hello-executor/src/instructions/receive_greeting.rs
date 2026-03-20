@@ -8,19 +8,19 @@ use crate::{
 };
 
 /// Raw message wrapper that accepts any payload bytes.
-///
+/// 
 /// **Why this exists:**
 /// EVM contracts (like demo-hello-executor's HelloWormhole.sol) send raw UTF-8 bytes:
 ///   `bytes memory payload = bytes(greeting);`
-///
+/// 
 /// But Solana's HelloExecutorMessage format is structured:
 ///   `0x01 (Hello ID) + u16 big-endian length + message bytes`
-///
+/// 
 /// Using PostedVaa<HelloExecutorMessage> would fail to deserialize EVM payloads.
 /// By accepting raw bytes here, we can distinguish formats in the handler:
 /// - Valid `0x01 | u16_be_len | bytes` payload → parse as HelloExecutorMessage
 /// - Anything else → treat as raw UTF-8 bytes (EVM sender)
-///
+/// 
 /// This enables bidirectional messaging: Solana ↔ EVM
 #[derive(Clone, Debug)]
 pub struct RawPayload(pub Vec<u8>);

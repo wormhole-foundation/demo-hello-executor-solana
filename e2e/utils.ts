@@ -1,4 +1,11 @@
-import { Connection, PublicKey } from '@solana/web3.js';
+import {
+    Connection,
+    PublicKey,
+    SystemProgram,
+    SYSVAR_CLOCK_PUBKEY,
+    SYSVAR_RENT_PUBKEY,
+    TransactionInstruction,
+} from '@solana/web3.js';
 import { createHash } from 'crypto';
 
 import { CHAIN_ID_SOLANA, EXECUTOR_API } from './config.js';
@@ -66,6 +73,53 @@ export function getDiscriminator(name: string): Buffer {
     const hash = createHash('sha256');
     hash.update(`global:${name}`);
     return Buffer.from(hash.digest().slice(0, 8));
+}
+
+// ============================================================================
+// Instructions
+// ============================================================================
+
+/**
+ * Build the send_greeting instruction for the hello-executor program.
+ *
+ * This is the first step in both the off-chain and on-chain quote flows:
+ * it posts a Wormhole message containing the greeting to the Core Bridge.
+ */
+export function buildSendGreetingInstruction(params: {
+    payer: PublicKey;
+    programId: PublicKey;
+    configPda: PublicKey;
+    wormholeProgram: PublicKey;
+    wormholeBridge: PublicKey;
+    wormholeFeeCollector: PublicKey;
+    emitterPda: PublicKey;
+    wormholeSequence: PublicKey;
+    wormholeMessage: PublicKey;
+    greeting: string;
+}): TransactionInstruction {
+    const discriminator = getDiscriminator('send_greeting');
+    const greetingBytes = Buffer.from(params.greeting, 'utf-8');
+    const lengthBuffer = Buffer.alloc(4);
+    lengthBuffer.writeUInt32LE(greetingBytes.length);
+    const data = Buffer.concat([discriminator, lengthBuffer, greetingBytes]);
+
+    return new TransactionInstruction({
+        keys: [
+            { pubkey: params.payer, isSigner: true, isWritable: true },
+            { pubkey: params.configPda, isSigner: false, isWritable: false },
+            { pubkey: params.wormholeProgram, isSigner: false, isWritable: false },
+            { pubkey: params.wormholeBridge, isSigner: false, isWritable: true },
+            { pubkey: params.wormholeFeeCollector, isSigner: false, isWritable: true },
+            { pubkey: params.emitterPda, isSigner: false, isWritable: true },
+            { pubkey: params.wormholeSequence, isSigner: false, isWritable: true },
+            { pubkey: params.wormholeMessage, isSigner: false, isWritable: true },
+            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+            { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
+            { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
+        ],
+        programId: params.programId,
+        data,
+    });
 }
 
 // ============================================================================

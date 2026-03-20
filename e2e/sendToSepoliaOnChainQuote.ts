@@ -3,9 +3,9 @@
  * Send a greeting from Solana Devnet → Sepolia via Wormhole Executor
  * using the devnet ON-CHAIN QUOTER for pricing.
  *
- * Important: this still needs an off-chain configured Executor payee wallet.
- * The quote is obtained on-chain, but the payee is not currently derivable from
- * quoter/router state, so this flow is devnet-only and partially configured.
+ * Both the quote and the payee address are discovered on-chain — no Executor
+ * REST API call is needed. The payee is obtained by simulating the quoter's
+ * RequestExecutionQuote instruction.
  *
  * Flow:
  *   1. send_greeting                    — post Wormhole message to Core Bridge
@@ -20,8 +20,6 @@ import {
     ComputeBudgetProgram,
     PublicKey,
     SystemProgram,
-    SYSVAR_CLOCK_PUBKEY,
-    SYSVAR_RENT_PUBKEY,
     Transaction,
     TransactionInstruction,
     sendAndConfirmTransaction,
@@ -34,11 +32,11 @@ import {
     CHAIN_ID_SEPOLIA,
     EXECUTOR_QUOTER_ROUTER_PROGRAM,
     EXECUTOR_QUOTER_PROGRAM,
-    EXECUTOR_PAYEE_DEVNET,
     QUOTER_EVM_ADDRESS,
 } from './config.js';
 import { createRelayInstructions } from './relay.js';
 import {
+    buildSendGreetingInstruction,
     deriveConfigPda,
     deriveEmitterPda,
     deriveMessagePda,
@@ -152,21 +150,70 @@ async function getSimulationDerivedComputeUnits(
 }
 
 /**
- * Get the payee (fee recipient) for the executor relay.
+ * Discover the payee (fee recipient) by simulating the quoter program's
+ * RequestExecutionQuote instruction. The quoter returns 72 bytes:
+ *   bytes 0-7:   required_payment (u64 BE)
+ *   bytes 8-39:  payee_address (32 bytes)
+ *   bytes 40-71: quote_body (32 bytes)
  *
- * WARNING: EXECUTOR_PAYEE_DEVNET is a hardcoded wallet address extracted from the
- * Executor REST API's signed quote. It is NOT derivable from on-chain state — none
- * of the quoter/router PDAs expose it. If the relay operator rotates this wallet,
- * the hardcoded value will break and must be updated manually (or overridden via
- * the EXECUTOR_PAYEE env var).
- *
- * See config.ts for details on how this address was obtained.
+ * This avoids hardcoding the payee — it's read from the on-chain quoter program.
+ * Source: https://github.com/wormholelabs-xyz/example-messaging-executor/blob/main/svm/pinocchio/programs/executor-quoter/src/instructions/get_quote.rs
  */
-function getPayee(): PublicKey {
-    if (process.env.EXECUTOR_PAYEE) {
-        return new PublicKey(process.env.EXECUTOR_PAYEE);
+async function discoverPayee(
+    connection: Connection,
+    payer: PublicKey,
+    quoterProgram: PublicKey,
+    quoterConfig: PublicKey,
+    quoterChainInfo: PublicKey,
+    quoterQuoteBody: PublicKey,
+    eventCpi: PublicKey,
+    dstChain: number,
+    relayInstructionsBytes: Buffer,
+): Promise<PublicKey> {
+    // RequestExecutionQuote discriminator: [3, 0, 0, 0, 0, 0, 0, 0]
+    const disc = Buffer.alloc(8);
+    disc[0] = 3;
+    const dstChainBuf = Buffer.alloc(2);
+    dstChainBuf.writeUInt16LE(dstChain);
+    const relayInstrLen = Buffer.alloc(4);
+    relayInstrLen.writeUInt32LE(relayInstructionsBytes.length);
+
+    const quoteIx = new TransactionInstruction({
+        keys: [
+            { pubkey: quoterConfig, isSigner: false, isWritable: false },
+            { pubkey: quoterChainInfo, isSigner: false, isWritable: false },
+            { pubkey: quoterQuoteBody, isSigner: false, isWritable: false },
+            { pubkey: eventCpi, isSigner: false, isWritable: false },
+        ],
+        programId: quoterProgram,
+        data: Buffer.concat([
+            disc,
+            dstChainBuf,
+            Buffer.alloc(32),  // dst_addr (not needed for pricing)
+            payer.toBuffer(),  // refund_addr
+            Buffer.alloc(4),   // request_bytes_len = 0
+            relayInstrLen, relayInstructionsBytes,
+        ]),
+    });
+
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    const tx = new Transaction({ feePayer: payer, recentBlockhash: blockhash }).add(quoteIx);
+    const sim = await connection.simulateTransaction(tx);
+
+    if (sim.value.err) {
+        throw new Error(`Payee discovery failed: ${JSON.stringify(sim.value.err)}`);
     }
-    return EXECUTOR_PAYEE_DEVNET;
+
+    const returnData = sim.value.returnData;
+    if (!returnData?.data?.[0]) {
+        throw new Error('No return data from quote simulation');
+    }
+
+    const decoded = Buffer.from(returnData.data[0], 'base64');
+    if (decoded.length < 40) {
+        throw new Error(`Unexpected return data length: ${decoded.length} (expected 72)`);
+    }
+    return new PublicKey(decoded.slice(8, 40));
 }
 
 function hexToBytes(hex: string): Buffer {
@@ -226,37 +273,41 @@ async function main() {
 
     console.log(`\nVAA sequence:  ${vaaSequence}`);
 
-    // Get payee (fee recipient) for the executor relay. This remains a
-    // devnet configuration input even though quote pricing comes from chain state.
-    const payee = getPayee();
-    console.log(`Payee: ${payee.toBase58()}`);
+    // Build relay instructions early — needed for both payee discovery and the relay tx
+    const GAS_LIMIT = 200000;
+    const relayInstructionsBytes = Buffer.from(
+        createRelayInstructions(BigInt(GAS_LIMIT), 0n).slice(2),
+        'hex'
+    );
 
+    // Discover payee from the on-chain quoter (no hardcoded address needed)
+    const payee = await discoverPayee(
+        connection,
+        keypair.publicKey,
+        quoterProgram,
+        quoterConfig,
+        quoterChainInfo,
+        quoterQuoteBody,
+        eventCpi,
+        CHAIN_ID_SEPOLIA,
+        relayInstructionsBytes,
+    );
+    console.log(`Payee (from quoter): ${payee.toBase58()}`);
 
     // == Step 1: send_greeting ================================================
     console.log('\n-- Step 1: Sending greeting message...');
 
-    const sendDiscriminator = getDiscriminator('send_greeting');
-    const greetingBytes = Buffer.from(greeting, 'utf-8');
-    const lengthBuffer = Buffer.alloc(4);
-    lengthBuffer.writeUInt32LE(greetingBytes.length);
-    const sendData = Buffer.concat([sendDiscriminator, lengthBuffer, greetingBytes]);
-
-    const sendInstruction = new TransactionInstruction({
-        keys: [
-            { pubkey: keypair.publicKey, isSigner: true, isWritable: true },
-            { pubkey: configPda, isSigner: false, isWritable: false },
-            { pubkey: wormholeProgram, isSigner: false, isWritable: false },
-            { pubkey: wormholeBridge, isSigner: false, isWritable: true },
-            { pubkey: wormholeFeeCollector, isSigner: false, isWritable: true },
-            { pubkey: emitterPda, isSigner: false, isWritable: true },
-            { pubkey: wormholeSequence, isSigner: false, isWritable: true },
-            { pubkey: wormholeMessage, isSigner: false, isWritable: true },
-            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-            { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
-            { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
-        ],
+    const sendInstruction = buildSendGreetingInstruction({
+        payer: keypair.publicKey,
         programId,
-        data: sendData,
+        configPda,
+        wormholeProgram,
+        wormholeBridge,
+        wormholeFeeCollector,
+        emitterPda,
+        wormholeSequence,
+        wormholeMessage,
+        greeting,
     });
 
     const sendSig = await sendAndConfirmTransaction(
@@ -275,47 +326,31 @@ async function main() {
     // == Step 2: request_relay_on_chain_quote ==================================
     console.log('\n-- Step 2: Requesting relay with on-chain quote...');
 
-    const GAS_LIMIT = 200000;
     // Generous estimate for execution cost (excess handled by router/executor)
     const EXEC_AMOUNT_LAMPORTS = 100_000_000n; // 0.1 SOL
-
-    // Relay instructions: gas limit + msgValue=0
-    const relayInstructionsBytes = Buffer.from(
-        createRelayInstructions(BigInt(GAS_LIMIT), 0n).slice(2),
-        'hex'
-    );
 
     // Quoter EVM address as 20-byte array
     const quoterAddrBytes = hexToBytes(QUOTER_EVM_ADDRESS);
 
-    // Encode RequestRelayOnChainQuoteArgs via Borsh:
-    //   dst_chain:          u16 LE
-    //   exec_amount:        u64 LE
-    //   quoter_address:     [u8; 20]
-    //   relay_instructions: Vec<u8> (4-byte LE length prefix + bytes)
-    //   sequence:           Option<u64> (0x01 + u64 LE = Some(n))
-    const sequenceOption = Buffer.alloc(1 + 8);
-    sequenceOption[0] = 0x01; // Some variant
-    sequenceOption.writeBigUInt64LE(vaaSequence, 1);
+    // Encode RequestRelayOnChainQuoteArgs via Borsh (Buffer.concat, no offset math)
+    const dstChainBuf = Buffer.alloc(2);
+    dstChainBuf.writeUInt16LE(CHAIN_ID_SEPOLIA);
+    const execAmountBuf = Buffer.alloc(8);
+    execAmountBuf.writeBigUInt64LE(EXEC_AMOUNT_LAMPORTS);
+    const relayInstrLenBuf = Buffer.alloc(4);
+    relayInstrLenBuf.writeUInt32LE(relayInstructionsBytes.length);
+    const sequenceBuf = Buffer.alloc(9);
+    sequenceBuf[0] = 0x01; // Some(vaaSequence)
+    sequenceBuf.writeBigUInt64LE(vaaSequence, 1);
 
-    const argsBuffer = Buffer.alloc(
-        2 + 8 + 20 + 4 + relayInstructionsBytes.length + sequenceOption.length
-    );
-    let offset = 0;
-    argsBuffer.writeUInt16LE(CHAIN_ID_SEPOLIA, offset);
-    offset += 2;
-    argsBuffer.writeBigUInt64LE(EXEC_AMOUNT_LAMPORTS, offset);
-    offset += 8;
-    quoterAddrBytes.copy(argsBuffer, offset);
-    offset += 20;
-    argsBuffer.writeUInt32LE(relayInstructionsBytes.length, offset);
-    offset += 4;
-    relayInstructionsBytes.copy(argsBuffer, offset);
-    offset += relayInstructionsBytes.length;
-    sequenceOption.copy(argsBuffer, offset);
-
-    const relayDiscriminator = getDiscriminator('request_relay_on_chain_quote');
-    const relayData = Buffer.concat([relayDiscriminator, argsBuffer]);
+    const relayData = Buffer.concat([
+        getDiscriminator('request_relay_on_chain_quote'),
+        dstChainBuf,                                   // dst_chain: u16
+        execAmountBuf,                                  // exec_amount: u64
+        quoterAddrBytes,                                // quoter_address: [u8; 20]
+        relayInstrLenBuf, relayInstructionsBytes,       // relay_instructions: Vec<u8>
+        sequenceBuf,                                    // sequence: Option<u64>
+    ]);
 
     const relayInstruction = new TransactionInstruction({
         keys: [

@@ -78,9 +78,10 @@ pub struct RequestRelayOnChainQuote<'info> {
     /// Executor program.
     pub executor_program: Program<'info, ExecutorProgram>,
 
-    /// CHECK: Payee account — the relay operator's fee wallet. Validated downstream
-    /// by the Executor/Quoter Router programs, not derivable from on-chain state.
-    /// See config.ts EXECUTOR_PAYEE_DEVNET for how this address is obtained.
+    /// CHECK: Payee account — the relay operator's fee wallet. Required by the
+    /// quoter router (account #5) and verified against the quoter's return data.
+    /// Discoverable by simulating the quoter's RequestExecutionQuote instruction
+    /// (discriminator [3,0,0,0,0,0,0,0]) — see sendToSepoliaOnChainQuote.ts.
     #[account(mut)]
     pub payee: UncheckedAccount<'info>,
 

@@ -14,8 +14,6 @@ import {
     Connection,
     PublicKey,
     SystemProgram,
-    SYSVAR_CLOCK_PUBKEY,
-    SYSVAR_RENT_PUBKEY,
     Transaction,
     TransactionInstruction,
     sendAndConfirmTransaction,
@@ -30,6 +28,7 @@ import {
 } from './config.js';
 import { createRelayInstructions } from './relay.js';
 import {
+    buildSendGreetingInstruction,
     deriveConfigPda,
     deriveEmitterPda,
     deriveMessagePda,
@@ -132,28 +131,17 @@ async function main() {
     // ── Step 1: send_greeting ───────────────────────────────────────────────
     console.log('\n📤 Step 1: Sending greeting message...');
 
-    const sendDiscriminator = getDiscriminator('send_greeting');
-    const greetingBytes = Buffer.from(greeting, 'utf-8');
-    const lengthBuffer = Buffer.alloc(4);
-    lengthBuffer.writeUInt32LE(greetingBytes.length);
-    const sendData = Buffer.concat([sendDiscriminator, lengthBuffer, greetingBytes]);
-
-    const sendInstruction = new TransactionInstruction({
-        keys: [
-            { pubkey: keypair.publicKey, isSigner: true, isWritable: true },
-            { pubkey: configPda, isSigner: false, isWritable: false },
-            { pubkey: wormholeProgram, isSigner: false, isWritable: false },
-            { pubkey: wormholeBridge, isSigner: false, isWritable: true },
-            { pubkey: wormholeFeeCollector, isSigner: false, isWritable: true },
-            { pubkey: emitterPda, isSigner: false, isWritable: true },
-            { pubkey: wormholeSequence, isSigner: false, isWritable: true },
-            { pubkey: wormholeMessage, isSigner: false, isWritable: true },
-            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-            { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
-            { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
-        ],
+    const sendInstruction = buildSendGreetingInstruction({
+        payer: keypair.publicKey,
         programId,
-        data: sendData,
+        configPda,
+        wormholeProgram,
+        wormholeBridge,
+        wormholeFeeCollector,
+        emitterPda,
+        wormholeSequence,
+        wormholeMessage,
+        greeting,
     });
 
     const sendSig = await sendAndConfirmTransaction(
