@@ -38,3 +38,11 @@ address = "6bi4JGDoRwUs9TYBuvoA7dUVyikTJDrJsJU1ew6KVLiu"
 ### Wormhole Fee Collector PDA
 [[test.validator.clone]]
 address = "7s3a1ycs16d6SNDumaRtjcoyMaTDZPavzgsmS3uUZYWX"
+
+### Executor Quoter Router Program (Devnet)
+[[test.validator.clone]]
+address = "qtrrrV7W3E1jnX1145wXR6ZpthG19ur5xHC1n6PPhDV"
+
+### Executor Quoter Program (Devnet)
+[[test.validator.clone]]
+address = "qtrxiqVAfVS61utwZLUi7UKugjCgFaNxBGyskmGingz"

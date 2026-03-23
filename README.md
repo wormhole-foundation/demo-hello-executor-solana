@@ -18,15 +18,54 @@ npx tsx e2e/initialize.ts
 # Register peers in both directions (Solana registers EVM, EVM registers Solana)
 npx tsx e2e/setupPeers.ts
 
-# Send from Solana to Sepolia
+# Send from Solana to Sepolia (off-chain quote)
 npx tsx e2e/sendToSepolia.ts "Hello from Solana!"
+
+# Send from Solana to Sepolia (devnet on-chain quote)
+npx tsx e2e/sendToSepoliaOnChainQuote.ts "Hello from Solana!"
 ```
 
 > For Sepolia → Solana, see the [EVM demo repo](https://github.com/wormhole-foundation/demo-hello-executor).
 
 ## Architecture
 
-### Solana → EVM (two transactions required)
+### Off-Chain vs On-Chain Quotes
+
+This demo supports two approaches for requesting Executor relay:
+
+| Approach | Script | API Call? | How it works |
+|----------|--------|-----------|--------------|
+| **Off-chain quote** | `sendToSepolia.ts` | Yes (Executor REST API) | Fetches a signed quote from the Executor API, then passes it to `request_relay` |
+| **Devnet on-chain quote** | `sendToSepoliaOnChainQuote.ts` | No | Quote and payee are both discovered on-chain via the Quoter Router / Quoter programs |
+
+Solana on-chain quotes are currently supported only on devnet. This demo therefore treats the flow as devnet-only and does not claim full parity with the EVM integration yet.
+
+#### On-chain quote CPI chain
+
+```
+hello-executor (depth 0)
+  └─> quoter-router (depth 1)  — routes to correct quoter
+        ├─> quoter (depth 2)   — returns price, then returns
+        └─> executor (depth 2) — registers relay, collects payment
+```
+
+#### Quoter program addresses (devnet)
+
+| Program | Address |
+|---------|---------|
+| Executor Quoter Router | `qtrrrV7W3E1jnX1145wXR6ZpthG19ur5xHC1n6PPhDV` |
+| Executor Quoter | `qtrxiqVAfVS61utwZLUi7UKugjCgFaNxBGyskmGingz` |
+| Quoter EVM Address | `0x5241C9276698439fEf2780DbaB76fEc90B633Fbd` |
+
+#### Quoter PDA reference
+
+| PDA | Seeds | Program |
+|-----|-------|---------|
+| QuoterRegistration | `["quoter_registration", quoter_evm_addr_20bytes]` | Quoter Router |
+| ChainInfo | `["chain_info", dst_chain_u16_le]` | Quoter |
+| QuoteBody | `["quote", dst_chain_u16_le]` | Quoter |
+
+### Solana → EVM (two transactions required, devnet quoter support only)
 
 > ⚠️ **Important:** Sending from Solana to EVM is a **two-step** process.
 > Both transactions must succeed for the message to arrive.
@@ -115,17 +154,21 @@ programs/hello-executor/src/
 │   ├── initialize.rs         # Initialize program config & Wormhole emitter
 │   ├── register_peer.rs      # Register peer contract on another chain
 │   ├── send_greeting.rs      # Send cross-chain message
-│   ├── request_relay.rs      # Request Executor relay
+│   ├── request_relay.rs      # Request Executor relay (off-chain quote)
+│   ├── request_relay_on_chain_quote.rs  # Request relay (on-chain quote)
 │   ├── receive_greeting.rs   # Receive cross-chain message
 │   └── update_config.rs      # Update Wormhole configuration (owner only)
+├── quoter_router_cpi.rs      # CPI helper for on-chain quoter
 ├── state/                    # Account structures
 └── resolver.rs               # Executor resolver
 
 e2e/
-├── sendToSepolia.ts          # Solana → Sepolia demo
+├── sendToSepolia.ts          # Solana → Sepolia demo (off-chain quote)
+├── sendToSepoliaOnChainQuote.ts  # Solana → Sepolia (on-chain quote)
 ├── setupPeers.ts             # Register peers (both directions)
 ├── config.ts                 # Chain configuration
 ├── relay.ts                  # Relay instruction encoding
+├── utils.ts                  # Shared helpers (sequence, VAA polling, executor status)
 └── types.ts                  # TypeScript types
 ```
 

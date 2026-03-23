@@ -17,9 +17,9 @@ use crate::{
 ///   `0x01 (Hello ID) + u16 big-endian length + message bytes`
 /// 
 /// Using PostedVaa<HelloExecutorMessage> would fail to deserialize EVM payloads.
-/// By accepting raw bytes here, we can auto-detect the format in the handler:
-/// - First byte == 0x01 → parse as HelloExecutorMessage (Solana sender)
-/// - Otherwise → treat as raw UTF-8 bytes (EVM sender)
+/// By accepting raw bytes here, we can distinguish formats in the handler:
+/// - Valid `0x01 | u16_be_len | bytes` payload → parse as HelloExecutorMessage
+/// - Anything else → treat as raw UTF-8 bytes (EVM sender)
 /// 
 /// This enables bidirectional messaging: Solana ↔ EVM
 #[derive(Clone, Debug)]
@@ -88,6 +88,7 @@ pub struct ReceiveGreeting<'info> {
         seeds = [
             Received::SEED_PREFIX,
             &posted.emitter_chain().to_le_bytes()[..],
+            posted.emitter_address(),
             &posted.sequence().to_le_bytes()[..],
         ],
         bump,
@@ -117,33 +118,34 @@ pub struct GreetingReceived {
 /// Payload ID for Hello message (from Solana senders)
 const PAYLOAD_ID_HELLO: u8 = 1;
 
+fn decode_greeting_payload(payload: &[u8]) -> Result<Vec<u8>> {
+    // Structured Solana payloads use: 0x01 | u16_be_len | message bytes.
+    // Only treat the payload as structured if the embedded length exactly matches.
+    if payload.len() >= 3 && payload[0] == PAYLOAD_ID_HELLO {
+        let declared_len = u16::from_be_bytes([payload[1], payload[2]]) as usize;
+        if payload.len() == 3 + declared_len {
+            msg!("Detected structured payload format (Solana sender)");
+            return match HelloExecutorMessage::deserialize(&mut &payload[..]) {
+                Ok(HelloExecutorMessage::Hello { message }) => Ok(message),
+                Ok(HelloExecutorMessage::Alive { .. }) => {
+                    Err(HelloExecutorError::InvalidMessage.into())
+                }
+                Err(_) => Err(HelloExecutorError::InvalidMessage.into()),
+            };
+        }
+    }
+
+    // EVM senders use raw UTF-8 bytes. This also preserves compatibility with
+    // raw payloads whose first byte happens to be 0x01 but do not carry the
+    // full Solana message header.
+    msg!("Detected raw payload format (EVM sender)");
+    Ok(payload.to_vec())
+}
+
 pub(crate) fn handler(ctx: Context<ReceiveGreeting>, vaa_hash: [u8; 32]) -> Result<()> {
     let posted = &ctx.accounts.posted;
     let payload = &posted.data().0;
-
-    // Auto-detect payload format:
-    // - If first byte is 0x01, it's HelloExecutorMessage format (from Solana)
-    // - Otherwise, treat as raw bytes (from EVM)
-    let message: Vec<u8> = if !payload.is_empty() && payload[0] == PAYLOAD_ID_HELLO {
-        // Solana format: 0x01 (payload ID) + u16 big-endian length + message bytes
-        msg!("Detected structured payload format (Solana sender)");
-        
-        match HelloExecutorMessage::deserialize(&mut &payload[..]) {
-            Ok(HelloExecutorMessage::Hello { message }) => message,
-            Ok(HelloExecutorMessage::Alive { .. }) => {
-                msg!("Received Alive message, not a greeting");
-                return Err(HelloExecutorError::InvalidMessage.into());
-            }
-            Err(e) => {
-                msg!("Failed to parse as HelloExecutorMessage: {:?}", e);
-                return Err(HelloExecutorError::InvalidMessage.into());
-            }
-        }
-    } else {
-        // EVM format: raw UTF-8 bytes
-        msg!("Detected raw payload format (EVM sender)");
-        payload.clone()
-    };
+    let message = decode_greeting_payload(payload)?;
 
     // Validate message length
     require!(
@@ -152,8 +154,8 @@ pub(crate) fn handler(ctx: Context<ReceiveGreeting>, vaa_hash: [u8; 32]) -> Resu
     );
 
     // Convert message to string for display
-    let greeting = String::from_utf8(message.clone())
-        .map_err(|_| HelloExecutorError::InvalidMessage)?;
+    let greeting =
+        String::from_utf8(message.clone()).map_err(|_| HelloExecutorError::InvalidMessage)?;
 
     ctx.accounts.received.set_inner(Received {
         batch_id: posted.batch_id(),
@@ -176,4 +178,41 @@ pub(crate) fn handler(ctx: Context<ReceiveGreeting>, vaa_hash: [u8; 32]) -> Resu
     );
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decodes_structured_solana_payload() {
+        let payload = HelloExecutorMessage::Hello {
+            message: b"hello".to_vec(),
+        }
+        .try_to_vec()
+        .unwrap();
+
+        assert_eq!(
+            decode_greeting_payload(&payload).unwrap(),
+            b"hello".to_vec()
+        );
+    }
+
+    #[test]
+    fn treats_non_matching_prefixed_payload_as_raw() {
+        let payload = vec![0x01, 0x00, 0x05, b'h', b'i'];
+        assert_eq!(decode_greeting_payload(&payload).unwrap(), payload);
+    }
+
+    #[test]
+    fn treats_truncated_structured_payload_as_raw() {
+        let payload = vec![0x01, 0x00, 0x02, b'h'];
+        assert_eq!(decode_greeting_payload(&payload).unwrap(), payload);
+    }
+
+    #[test]
+    fn decodes_raw_evm_payload() {
+        let payload = b"hello from evm".to_vec();
+        assert_eq!(decode_greeting_payload(&payload).unwrap(), payload);
+    }
 }

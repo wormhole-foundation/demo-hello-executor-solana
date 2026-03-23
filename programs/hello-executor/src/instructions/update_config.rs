@@ -17,7 +17,6 @@ pub struct UpdateWormholeConfig<'info> {
     )]
     /// Config account to update.
     pub config: Account<'info, Config>,
-
     /// CHECK: Wormhole Core Bridge program (different on each chain).
     pub wormhole_program: UncheckedAccount<'info>,
 

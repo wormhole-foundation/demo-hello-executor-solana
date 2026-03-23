@@ -184,7 +184,10 @@
         {
           "name": "wormholeProgram",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "Wormhole Core Bridge program."
+          ]
         },
         {
           "name": "wormholeBridge",
@@ -398,6 +401,131 @@
       ]
     },
     {
+      "name": "requestRelayOnChainQuote",
+      "docs": [
+        "Request Executor relay using an on-chain quote (no API call needed)."
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Payer for the Executor request (also used as refund address)."
+          ]
+        },
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Config account."
+          ]
+        },
+        {
+          "name": "peer",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Registered peer on the destination chain."
+          ]
+        },
+        {
+          "name": "wormholeEmitter",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Program's Wormhole emitter account."
+          ]
+        },
+        {
+          "name": "wormholeSequence",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "quoterRouterProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Executor Quoter Router program."
+          ]
+        },
+        {
+          "name": "quoterRouterConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "quoterRegistration",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "quoterProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Executor Quoter program."
+          ]
+        },
+        {
+          "name": "executorProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Executor program."
+          ]
+        },
+        {
+          "name": "payee",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "quoter router (account #5) and verified against the quoter's return data.",
+            "Discoverable by simulating the quoter's RequestExecutionQuote instruction",
+            "(discriminator [3,0,0,0,0,0,0,0]) — see sendToSepoliaOnChainQuote.ts."
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program."
+          ]
+        },
+        {
+          "name": "quoterConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "quoterChainInfo",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "quoterQuoteBody",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventCpi",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": "RequestRelayOnChainQuoteArgs"
+          }
+        }
+      ]
+    },
+    {
       "name": "updateWormholeConfig",
       "docs": [
         "Update Wormhole configuration (owner only)."
@@ -440,9 +568,9 @@
     {
       "name": "resolveExecuteVaaV1",
       "docs": [
-        "Executor VAA resolver \u2014 Anchor-callable path (for testing / direct calls).",
+        "Executor VAA resolver — Anchor-callable path (for testing / direct calls).",
         "",
-        "## Two resolver paths \u2014 read this before calling",
+        "## Two resolver paths — read this before calling",
         "",
         "The Wormhole Executor calls this program's resolver using its own",
         "discriminator (`94b8a9decf089a7f`, see `fallback` below), **not** through",
@@ -451,11 +579,11 @@
         "",
         "| Caller           | Entry point       | Discriminator     | Accounts passed? |",
         "|------------------|-------------------|-------------------|-----------------|",
-        "| Wormhole Executor | `fallback`        | `94b8a9decf089a7f`| No \u2014 derived    |",
+        "| Wormhole Executor | `fallback`        | `94b8a9decf089a7f`| No — derived    |",
         "| Test / manual     | this instruction  | Anchor-generated  | Yes             |",
         "",
         "If you are **integrating with the Executor service**, you do not call this",
-        "instruction directly \u2014 the Executor discovers and calls the resolver",
+        "instruction directly — the Executor discovers and calls the resolver",
         "automatically via the fallback handler.",
         "",
         "If you are **writing tests** against the resolver, you can call this",
@@ -466,26 +594,17 @@
         {
           "name": "config",
           "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Config account."
-          ]
+          "isSigner": false
         },
         {
           "name": "wormholeProgram",
           "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Wormhole Core Bridge program."
-          ]
+          "isSigner": false
         },
         {
           "name": "systemProgram",
           "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "System program."
-          ]
+          "isSigner": false
         }
       ],
       "args": [
@@ -707,11 +826,11 @@
       "docs": [
         "Arguments for requesting an Executor relay.",
         "",
-        "Solana \u2192 EVM messaging is a **two-step** process:",
+        "Solana → EVM messaging is a **two-step** process:",
         "",
         "```text",
-        "1. send_greeting  \u2192 posts a Wormhole VAA on Solana (sequence N)",
-        "2. request_relay  \u2192 pays the Executor to deliver that VAA on the EVM side",
+        "1. send_greeting  → posts a Wormhole VAA on Solana (sequence N)",
+        "2. request_relay  → pays the Executor to deliver that VAA on the EVM side",
         "```",
         "",
         "Both steps must be called for the message to arrive. If you call `send_greeting`",
@@ -754,11 +873,71 @@
             "name": "sequence",
             "docs": [
               "The specific VAA sequence to relay.",
-              "- `None` / omitted \u2192 relay the most recently published message (current tracker \u2212 1)",
-              "- `Some(n)`        \u2192 relay the message at sequence `n` (useful if you skipped a relay)",
+              "- `None` / omitted → relay the most recently published message (current tracker − 1)",
+              "- `Some(n)`        → relay the message at sequence `n` (useful if you skipped a relay)",
               "",
               "Note: the Wormhole sequence tracker stores the NEXT sequence to be assigned,",
-              "so valid sequences are `0 ..= tracker \u2212 1`."
+              "so valid sequences are `0 ..= tracker − 1`."
+            ],
+            "type": {
+              "option": "u64"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "RequestRelayOnChainQuoteArgs",
+      "docs": [
+        "Arguments for requesting an Executor relay using an on-chain quote.",
+        "",
+        "Like [`RequestRelayArgs`](super::request_relay::RequestRelayArgs), this requests",
+        "Executor relay for a published Wormhole message, but obtains the quote on-chain",
+        "via the Executor Quoter Router instead of requiring a pre-signed off-chain quote."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "dstChain",
+            "docs": [
+              "Wormhole chain ID of the destination chain."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "execAmount",
+            "docs": [
+              "Amount to pay the Executor (lamports). Should be a generous estimate;",
+              "the router/executor handles excess."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "quoterAddress",
+            "docs": [
+              "EVM address of the quoter (20 bytes)."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                20
+              ]
+            }
+          },
+          {
+            "name": "relayInstructions",
+            "docs": [
+              "Relay instructions bytes (encodes gas limit + msgValue for the destination)."
+            ],
+            "type": "bytes"
+          },
+          {
+            "name": "sequence",
+            "docs": [
+              "The specific VAA sequence to relay.",
+              "- `None` → relay the most recently published message (current tracker − 1)",
+              "- `Some(n)` → relay the message at sequence `n`"
             ],
             "type": {
               "option": "u64"
@@ -907,9 +1086,11 @@
       "code": 6010,
       "name": "NoMessagesYet",
       "msg": "NoMessagesYet"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidQuoterAccount",
+      "msg": "InvalidQuoterAccount"
     }
-  ],
-  "metadata": {
-    "address": "7eiTqf1b1dNwpzn27qEr4eGSWnuon2fJTbnTuWcFifZG"
-  }
+  ]
 }

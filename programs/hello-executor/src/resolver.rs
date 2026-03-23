@@ -24,7 +24,9 @@ pub struct ExecuteVaaV1<'info> {
 }
 
 // Re-export types for lib.rs
-pub use executor_account_resolver_svm::{InstructionGroups as ResolverInstructionGroups, Resolver as ResolverType};
+pub use executor_account_resolver_svm::{
+    InstructionGroups as ResolverInstructionGroups, Resolver as ResolverType,
+};
 
 // ============ Handlers ============
 
@@ -102,7 +104,7 @@ pub(crate) fn handle_resolve_raw<'info>(
 
     // Derive all required PDAs from program ID - executor doesn't pass accounts
     let (config_key, _) = Pubkey::find_program_address(&[Config::SEED_PREFIX], program_id);
-    
+
     // Wormhole Core Bridge address (resolved via feature flags: solana-devnet, mainnet, etc.)
     let wormhole_program_key = wormhole::program::ID;
     let system_program_key = solana_program::system_program::ID;
@@ -125,7 +127,7 @@ pub(crate) fn handle_resolve_raw<'info>(
 }
 
 /// Build the resolver result containing the instruction to execute.
-/// 
+///
 /// Uses RESOLVER_PUBKEY_POSTED_VAA placeholder to tell the Executor to:
 /// 1. First post the VAA to the Wormhole Core Bridge
 /// 2. Replace the placeholder with the actual posted_vaa address
@@ -137,9 +139,13 @@ fn build_resolver_result(
     vaa_body: &[u8],
 ) -> Result<Resolver<InstructionGroups>> {
     let vaa_hash = solana_program::keccak::hashv(&[vaa_body]).to_bytes();
-    let (emitter_chain, _emitter_address, sequence) = parse_vaa_body(vaa_body)?;
-    
-    msg!("Building resolver for chain {} seq {}", emitter_chain, sequence);
+    let (emitter_chain, emitter_address, sequence) = parse_vaa_body(vaa_body)?;
+
+    msg!(
+        "Building resolver for chain {} seq {}",
+        emitter_chain,
+        sequence
+    );
 
     // Derive PDAs for peer and received (these are program-specific)
     let (peer, _) = Pubkey::find_program_address(
@@ -151,6 +157,7 @@ fn build_resolver_result(
         &[
             Received::SEED_PREFIX,
             &emitter_chain.to_le_bytes(),
+            &emitter_address,
             &sequence.to_le_bytes(),
         ],
         program_id,
@@ -205,8 +212,93 @@ fn build_resolver_result(
         data: receive_data,
     };
 
-    Ok(Resolver::Resolved(InstructionGroups(vec![InstructionGroup {
-        instructions: vec![instruction],
-        address_lookup_tables: vec![],
-    }])))
+    Ok(Resolver::Resolved(InstructionGroups(vec![
+        InstructionGroup {
+            instructions: vec![instruction],
+            address_lookup_tables: vec![],
+        },
+    ])))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_vaa_body() -> Vec<u8> {
+        let mut body = Vec::new();
+        body.extend_from_slice(&1u32.to_be_bytes());
+        body.extend_from_slice(&2u32.to_be_bytes());
+        body.extend_from_slice(&2u16.to_be_bytes());
+        body.extend_from_slice(&[7u8; 32]);
+        body.extend_from_slice(&9u64.to_be_bytes());
+        body.push(1u8);
+        body.extend_from_slice(b"hello");
+        body
+    }
+
+    #[test]
+    fn parses_vaa_body_fields() {
+        let body = sample_vaa_body();
+        let (chain, emitter, sequence) = parse_vaa_body(&body).unwrap();
+        assert_eq!(chain, 2);
+        assert_eq!(emitter, [7u8; 32]);
+        assert_eq!(sequence, 9);
+    }
+
+    #[test]
+    fn builds_resolver_with_expected_receive_accounts() {
+        let program_id = crate::ID;
+        let config_key = Pubkey::new_unique();
+        let wormhole_program_key = wormhole::program::ID;
+        let system_program_key = solana_program::system_program::ID;
+        let vaa_body = sample_vaa_body();
+
+        let result = build_resolver_result(
+            &program_id,
+            &config_key,
+            &wormhole_program_key,
+            &system_program_key,
+            &vaa_body,
+        )
+        .unwrap();
+
+        let Resolver::Resolved(groups) = result else {
+            panic!("expected resolved instruction groups");
+        };
+
+        assert_eq!(groups.0.len(), 1);
+        let group = &groups.0[0];
+        assert_eq!(group.instructions.len(), 1);
+        let instruction = &group.instructions[0];
+
+        assert_eq!(instruction.program_id, program_id);
+        assert_eq!(instruction.accounts[0].pubkey, RESOLVER_PUBKEY_PAYER);
+        assert_eq!(instruction.accounts[1].pubkey, config_key);
+        assert_eq!(instruction.accounts[2].pubkey, wormhole_program_key);
+        assert_eq!(instruction.accounts[3].pubkey, RESOLVER_PUBKEY_POSTED_VAA);
+        assert_eq!(instruction.accounts[6].pubkey, system_program_key);
+
+        let expected_data = crate::instruction::ReceiveGreeting {
+            vaa_hash: solana_program::keccak::hashv(&[&vaa_body]).to_bytes(),
+        }
+        .data();
+        assert_eq!(instruction.data, expected_data);
+
+        let expected_peer =
+            Pubkey::find_program_address(&[Peer::SEED_PREFIX, &2u16.to_le_bytes()], &program_id).0;
+        let expected_received = Pubkey::find_program_address(
+            &[
+                Received::SEED_PREFIX,
+                &2u16.to_le_bytes(),
+                &[7u8; 32],
+                &9u64.to_le_bytes(),
+            ],
+            &program_id,
+        )
+        .0;
+
+        assert_eq!(instruction.accounts[4].pubkey, expected_peer);
+        assert_eq!(instruction.accounts[5].pubkey, expected_received);
+        assert!(instruction.accounts[5].is_writable);
+    }
 }
